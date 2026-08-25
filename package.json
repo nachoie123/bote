@@ -1,11 +1,24 @@
 {
   "name": "bote",
   "version": "1.0.0",
-  "description": "Contador de fichas y reparto de dinero para partidas de poker en casa",
+  "description": "Contador de fichas y reparto de dinero para partidas de póker en casa",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.js"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "homepage": "https://bote.nachosanbenito.me",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nachoie123/bote.git"
+  },
+  "keywords": [
+    "poker",
+    "pwa",
+    "offline",
+    "vanilla-js",
+    "settle-up",
+    "sin-dependencias"
+  ]
 }

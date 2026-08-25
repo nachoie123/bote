@@ -1,4 +1,21 @@
+<div align="center">
+
+<img src="assets/logo.svg" alt="" width="112" height="112">
+
 # Bote
+
+**Cuenta las fichas de la partida y dice quién le paga a quién.**
+
+[**Abrir la app →**](https://bote.nachosanbenito.me)
+
+[![Sin dependencias](https://img.shields.io/badge/dependencias-0-22c55e?style=flat-square&labelColor=0b0f0d)](package.json)
+[![39 tests](https://img.shields.io/badge/tests-39%20✓-22c55e?style=flat-square&labelColor=0b0f0d)](test)
+[![Funciona sin conexión](https://img.shields.io/badge/PWA-sin%20conexión-22c55e?style=flat-square&labelColor=0b0f0d)](sw.js)
+[![MIT](https://img.shields.io/badge/licencia-MIT-8b9791?style=flat-square&labelColor=0b0f0d)](LICENSE)
+
+<img src="assets/pantallas.png" alt="La app durante la partida y en el reparto final" width="880">
+
+</div>
 
 Contador de fichas y reparto de dinero para partidas de póker en casa. Un Tricount
 adaptado al póker: se apuntan los buy-ins durante la noche, al final se cuentan las

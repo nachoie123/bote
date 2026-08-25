@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Bote">
+  <title>Bote</title>
+  <!-- Misma geometría que tools/iconos.py: ficha de póker con la B en el centro. -->
+  <rect width="512" height="512" rx="114" fill="#0b0f0d"/>
+
+  <!-- Tapa de la ficha -->
+  <circle cx="256" cy="256" r="243.2" fill="#f1f5f3"/>
+
+  <!-- Seis muescas del canto -->
+  <g fill="#22c55e">
+    <path d="M256 256 L499.2 256 A243.2 243.2 0 0 1 466.6 377.6 Z"/>
+    <path d="M256 256 L377.6 466.6 A243.2 243.2 0 0 1 256 499.2 Z"/>
+    <path d="M256 256 L134.4 466.6 A243.2 243.2 0 0 1 45.4 377.6 Z"/>
+    <path d="M256 256 L12.8 256 A243.2 243.2 0 0 1 45.4 134.4 Z"/>
+    <path d="M256 256 L134.4 45.4 A243.2 243.2 0 0 1 256 12.8 Z"/>
+    <path d="M256 256 L377.6 45.4 A243.2 243.2 0 0 1 466.6 134.4 Z"/>
+  </g>
+  <circle cx="256" cy="256" r="197.1" fill="#f1f5f3"/>
+
+  <!-- Aro oscuro y disco central -->
+  <circle cx="256" cy="256" r="161.3" fill="#0b0f0d"/>
+  <circle cx="256" cy="256" r="145.9" fill="#22c55e"/>
+
+  <!-- La B: un palo y dos panzas elípticas -->
+  <g fill="#0b0f0d">
+    <rect x="199.2" y="166.4" width="32.8" height="179.2"/>
+    <path d="M232 166.4 A72.7 42.5 0 0 1 232 251.4 L232 233 A43 24.1 0 0 0 232 184.8 Z"/>
+    <path d="M232 251.4 A79.4 47.1 0 0 1 232 345.6 L232 326.1 A47.6 27.6 0 0 0 232 270.9 Z"/>
+  </g>
+</svg>

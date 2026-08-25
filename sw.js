@@ -9,7 +9,7 @@
  * tengan instalada seguirán con la vieja.
  */
 
-const VERSION = 'bote-v1';
+const VERSION = 'bote-v2';
 
 const ARCHIVOS = [
   './',
@@ -20,6 +20,7 @@ const ARCHIVOS = [
   'js/estado.js',
   'js/fichas.js',
   'manifest.webmanifest',
+  'iconos/icono-32.png',
   'iconos/icono-180.png',
   'iconos/icono-192.png',
   'iconos/icono-512.png',
