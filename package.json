@@ -1,0 +1,11 @@
+{
+  "name": "bote",
+  "version": "1.0.0",
+  "description": "Contador de fichas y reparto de dinero para partidas de poker en casa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT"
+}

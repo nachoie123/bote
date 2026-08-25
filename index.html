@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Bote — fichas y reparto de póker</title>
+<!-- viewport-fit=cover: sin esto, en pantalla completa quedan bandas negras
+     arriba y abajo en los iPhone con muesca. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="description" content="Cuenta las fichas de la partida y reparte el dinero: quién paga a quién, con el mínimo de pagos.">
+<meta name="theme-color" content="#0b0f0d">
+<meta name="color-scheme" content="dark">
+
+<!-- Que al añadirla a la pantalla de inicio se abra como una app y no como
+     una pestaña de Safari. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bote">
+<link rel="apple-touch-icon" href="iconos/icono-180.png">
+<link rel="icon" href="iconos/icono-192.png" sizes="192x192">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body data-vista="inicio">
+
+<div class="app">
+  <header class="barra">
+    <button class="barra__atras" id="atras" hidden aria-label="Volver">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      <span id="atras-texto">Atrás</span>
+    </button>
+    <h1 class="barra__titulo" id="titulo">Bote</h1>
+    <button class="barra__accion" id="accion-barra" hidden></button>
+  </header>
+
+  <main id="principal">
+    <section class="vista" data-para="inicio" id="v-inicio"></section>
+    <section class="vista" data-para="ajustes" id="v-ajustes"></section>
+    <section class="vista" data-para="partida" id="v-partida"></section>
+    <section class="vista" data-para="contar" id="v-contar"></section>
+    <section class="vista" data-para="reparto" id="v-reparto"></section>
+  </main>
+
+  <div class="pie" id="pie" hidden></div>
+</div>
+
+<!-- Panel inferior para diálogos, al estilo de las hojas de acción de iOS. -->
+<div class="panel" id="panel" hidden>
+  <div class="panel__fondo" data-cerrar-panel></div>
+  <div class="panel__caja" role="dialog" aria-modal="true" aria-labelledby="panel-titulo">
+    <div class="panel__asa"></div>
+    <h2 class="panel__titulo" id="panel-titulo"></h2>
+    <div class="panel__cuerpo" id="panel-cuerpo"></div>
+  </div>
+</div>
+
+<script type="module" src="js/ui.js"></script>
+</body>
+</html>
