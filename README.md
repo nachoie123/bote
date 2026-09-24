@@ -6,7 +6,7 @@
 
 **Cuenta las fichas de la partida y dice quién le paga a quién.**
 
-[**Abrir la app →**](https://bote.nachosanbenito.me)
+[**Abrir la app →**](https://bote.nachosanbenito.com)
 
 [![Sin dependencias](https://img.shields.io/badge/dependencias-0-22c55e?style=flat-square&labelColor=0b0f0d)](package.json)
 [![39 tests](https://img.shields.io/badge/tests-39%20✓-22c55e?style=flat-square&labelColor=0b0f0d)](test)
