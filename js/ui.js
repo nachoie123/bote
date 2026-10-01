@@ -3,7 +3,7 @@
 
 import * as E from './estado.js';
 import { calcular, euros, aCentimos, valorConteo, textoCompartir } from './motor.js';
-import { sugerirReparto, validarFichas, jugadoresQueCaben } from './fichas.js';
+import { sugerirReparto, buyInSugerido, validarFichas, jugadoresQueCaben } from './fichas.js';
 
 /* ── utilidades de DOM ───────────────────────────────────────────────────── */
 
@@ -98,7 +98,7 @@ function pintar() {
   document.body.dataset.vista = vista;
   const titulos = {
     inicio: 'Bote',
-    ajustes: 'Fichas y buy-in',
+    ajustes: 'Repartir fichas',
     partida: p?.nombre || (p ? `Partida del ${fecha(p.fecha)}` : 'Partida'),
     contar: 'Contar fichas',
     reparto: 'Reparto',
@@ -129,6 +129,15 @@ function pintarInicio() {
   vaciar($('#pie')).append(
     h('button', { class: 'btn btn--principal', onclick: panelNuevaPartida }, 'Nueva partida'));
 
+  cont.append(
+    h('div', { class: 'tarjeta', style: 'margin-bottom:20px' },
+      h('button', { class: 'fila', onclick: () => ir('ajustes') },
+        h('div', { class: 'fila__princ' },
+          h('div', { class: 'fila__nombre' }, '¿Cuántas fichas doy a cada uno?'),
+          h('div', { class: 'fila__sub' },
+            `${euros(estado.ajustes.buyIn)} · ${estado.ajustes.fichas.map((f) => f.nombre.toLowerCase()).join(', ')}`)),
+        h('span', { class: 'fila__chevron' }, '›'))));
+
   if (activa) {
     const r = calcular(activa);
     cont.append(
@@ -147,14 +156,6 @@ function pintarInicio() {
 
   const historico = estado.partidas.filter((p) => p.id !== estado.activaId);
   cont.append(
-    h('p', { class: 'rotulo', style: 'margin-top:20px' }, 'Ajustes'),
-    h('div', { class: 'tarjeta' },
-      h('button', { class: 'fila', onclick: () => ir('ajustes') },
-        h('div', { class: 'fila__princ' },
-          h('div', { class: 'fila__nombre' }, 'Fichas y buy-in'),
-          h('div', { class: 'fila__sub' },
-            `${euros(estado.ajustes.buyIn)} · ${estado.ajustes.fichas.map((f) => f.nombre.toLowerCase()).join(', ')}`)),
-        h('span', { class: 'fila__chevron' }, '›'))),
     h('p', { class: 'rotulo', style: 'margin-top:20px' }, 'Histórico'),
     historico.length
       ? h('div', { class: 'tarjeta' }, ...historico.map((p) => {
@@ -213,11 +214,22 @@ function pintarAjustes() {
   const ajustes = E.get().ajustes;
   // Copia de trabajo: no se toca el estado hasta darle a Guardar.
   const fichas = structuredClone(ajustes.fichas);
-  let buyIn = ajustes.buyIn;
   let numJugadores = Math.max(2, E.partidaActiva()?.jugadores.length || 4);
+  // Buy-in vacío = automático: lo más que da la caja para esos jugadores.
+  let buyInFijo = ajustes.buyIn;
+  const buyIn = () => buyInFijo ?? buyInSugerido(fichas, numJugadores);
 
-  const campoBuyIn = campoImporte(buyIn, 'Buy-in por jugador');
-  campoBuyIn.input.addEventListener('input', () => { buyIn = campoBuyIn.leer() ?? buyIn; repintarReparto(); });
+  const campoBuyIn = campoImporte(ajustes.buyIn, 'Buy-in por jugador');
+  campoBuyIn.input.placeholder = 'Vacío = lo calcula la caja';
+  campoBuyIn.input.addEventListener('input', () => {
+    // A medio escribir («20,») se queda con lo último que se entendió.
+    buyInFijo = campoBuyIn.input.value.trim() ? (campoBuyIn.leer() ?? buyInFijo) : null;
+    repintarReparto();
+  });
+  const botonAuto = h('button', {
+    class: 'btn btn--fantasma btn--pequeño', style: 'margin-top:8px',
+    onclick: () => { campoBuyIn.input.value = ''; buyInFijo = null; repintarReparto(); },
+  }, 'Calcular con lo que hay en la caja');
 
   const listaFichas = h('div', { class: 'tarjeta' });
   const cajaReparto = h('div', { class: 'tarjeta' });
@@ -265,7 +277,17 @@ function pintarAjustes() {
       cajaReparto.append(h('p', { class: 'vacio' }, errores[0]));
       return;
     }
-    const { reparto, total, ok, avisos } = sugerirReparto(buyIn, fichas, numJugadores);
+    if (!(buyIn() > 0)) {
+      cajaReparto.append(h('p', { class: 'vacio' }, buyInFijo === null
+        ? 'Pon cuántas fichas hay en la caja de cada color, o escribe el buy-in.'
+        : 'Escribe un buy-in mayor que cero.'));
+      return;
+    }
+    const { reparto, total, ok, avisos } = sugerirReparto(buyIn(), fichas, numJugadores);
+    cajaReparto.append(h('div', { class: 'fila' },
+      h('div', { class: 'fila__princ' },
+        h('div', { class: 'fila__nombre' }, `A cada jugador, ${euros(buyIn())}`),
+        h('div', { class: 'fila__sub' }, buyInFijo === null ? 'Buy-in calculado con la caja' : 'Buy-in escrito a mano'))));
     for (const f of [...fichas].sort((a, b) => a.valor - b.valor)) {
       cajaReparto.append(h('div', { class: 'fila' },
         h('span', { class: 'punto', style: `background:${f.color}` }),
@@ -279,25 +301,30 @@ function pintarAjustes() {
       h('div', { class: `fila__cifra ${ok ? 'gana' : 'pierde'}` }, euros(total))));
     if (ok) {
       const caben = jugadoresQueCaben(reparto, fichas);
+      const recompras = caben - numJugadores;
       cajaReparto.append(h('div', { class: 'fila' },
         h('div', { class: 'fila__princ fila__sub' },
-          Number.isFinite(caben) ? `Con las fichas de la caja llegáis a ${caben} jugadores.` : 'Sin límite de fichas declarado.')));
+          !Number.isFinite(caben) ? 'Sin límite de fichas declarado.'
+            : recompras > 0 ? `En la caja quedan fichas para ${recompras} ${recompras === 1 ? 'recompra' : 'recompras'}.`
+              : 'La caja se queda vacía: no quedan fichas para recompras.')));
     }
     for (const a of avisos) cajaReparto.append(h('div', { class: 'fila' }, h('div', { class: 'fila__princ fila__sub pierde' }, a)));
   }
 
   const selJugadores = h('select', {
     onchange: (ev) => { numJugadores = parseInt(ev.target.value, 10); repintarReparto(); },
-  }, ...Array.from({ length: 11 }, (_, i) => i + 2).map((n) =>
+  }, ...Array.from({ length: 19 }, (_, i) => i + 2).map((n) =>
     h('option', { value: n, selected: n === numJugadores }, `${n} jugadores`)));
 
   repintarFichas();
   repintarReparto();
 
   cont.append(
-    h('div', { class: 'bloque' }, campoBuyIn),
     h('div', { class: 'bloque' },
-      h('p', { class: 'rotulo' }, 'Colores y valores'),
+      h('label', { class: 'campo' },
+        h('span', { class: 'campo__etiqueta' }, 'Cuántos jugáis'), selJugadores)),
+    h('div', { class: 'bloque' },
+      h('p', { class: 'rotulo' }, 'Fichas: color, valor y cuántas hay'),
       listaFichas,
       h('button', {
         class: 'btn btn--fantasma', style: 'margin-top:8px',
@@ -306,10 +333,9 @@ function pintarAjustes() {
           repintarFichas(); repintarReparto();
         },
       }, '+ Añadir color')),
+    h('div', { class: 'bloque' }, campoBuyIn, botonAuto),
     h('div', { class: 'bloque' },
-      h('p', { class: 'rotulo' }, 'Reparto inicial sugerido'),
-      h('label', { class: 'campo', style: 'margin-bottom:8px' },
-        h('span', { class: 'campo__etiqueta' }, 'Para cuántos jugadores'), selJugadores),
+      h('p', { class: 'rotulo' }, 'Lo que se le da a cada uno'),
       cajaReparto));
 
   $('#pie').hidden = false;
@@ -318,7 +344,7 @@ function pintarAjustes() {
     onclick: () => {
       const errores = validarFichas(fichas);
       if (errores.length) { abrirPanel('No se puede guardar', h('p', {}, errores[0]), h('button', { class: 'btn btn--fantasma', onclick: cerrarPanel }, 'Vale')); return; }
-      E.guardarAjustes({ buyIn, fichas });
+      E.guardarAjustes({ buyIn: buyIn(), fichas });
       ir('inicio');
     },
   }, 'Guardar'));

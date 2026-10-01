@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { sugerirReparto, jugadoresQueCaben, validarFichas, FICHAS_POR_DEFECTO } from '../js/fichas.js';
+import { sugerirReparto, buyInSugerido, jugadoresQueCaben, validarFichas, FICHAS_POR_DEFECTO } from '../js/fichas.js';
 import { valorConteo } from '../js/motor.js';
 
 const valor = (reparto, fichas) => valorConteo(reparto, fichas);
@@ -95,4 +95,35 @@ test('jugadoresQueCaben dice para cuántos da la caja', () => {
 test('sin buy-in o sin fichas devuelve un aviso, no un reparto raro', () => {
   assert.equal(sugerirReparto(0, FICHAS_POR_DEFECTO, 4).ok, false);
   assert.equal(sugerirReparto(2000, [], 4).ok, false);
+});
+
+test('encuentra el reparto exacto aunque el ajuste a ojo no llegue', () => {
+  // 0,60 € con fichas de 0,20 y 0,50: solo vale 3 × 0,20. Ir metiendo la más
+  // alta que cabe (0,50) deja 0,10 imposible de cerrar.
+  const raras = [
+    { id: 'a', nombre: 'A', color: '#fff', valor: 20, unidades: 0 },
+    { id: 'b', nombre: 'B', color: '#000', valor: 50, unidades: 0 },
+  ];
+  const r = sugerirReparto(60, raras, 1);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.reparto, { a: 3, b: 0 });
+});
+
+test('buyInSugerido saca de la caja un buy-in redondo que cuadra', () => {
+  // 4 jugadores: 37 blancas + 25 rojas + 25 negras por cabeza = 41,20 € → 40 €.
+  assert.equal(buyInSugerido(FICHAS_POR_DEFECTO, 4), 4000);
+  for (const n of [2, 3, 5, 6, 8, 10]) {
+    const b = buyInSugerido(FICHAS_POR_DEFECTO, n);
+    assert.ok(b > 0 && b % 100 === 0, `${n} jugadores: ${b}`);
+    const { ok, reparto } = sugerirReparto(b, FICHAS_POR_DEFECTO, n);
+    assert.ok(ok, `${n} jugadores`);
+    assert.ok(jugadoresQueCaben(reparto, FICHAS_POR_DEFECTO) >= n);
+  }
+  // Sin unidades declaradas no se puede saber cuánto da la caja.
+  assert.equal(buyInSugerido(FICHAS_POR_DEFECTO.map((f) => ({ ...f, unidades: 0 })), 4), 0);
+});
+
+test('buyInSugerido no tira un cuarto de la caja por redondear a 5 €', () => {
+  // 8 jugadores: la caja da 19,80 € por cabeza. 15 € dejaría fichas de sobra.
+  assert.equal(buyInSugerido(FICHAS_POR_DEFECTO, 8), 1900);
 });

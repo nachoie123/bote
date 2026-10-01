@@ -23,15 +23,22 @@ export function validarFichas(fichas) {
   return errores;
 }
 
+/** Lo que le toca a cada uno si la caja se reparte a partes iguales, color a color. */
+const tope = (f, numJugadores) => (f.unidades > 0 ? Math.floor(f.unidades / Math.max(1, numJugadores)) : Infinity);
+
 /**
  * Propone cuántas fichas de cada color dar a cada jugador para que sumen
- * exactamente el buy-in.
+ * exactamente el buy-in, sin pasarse de lo que hay en la caja.
  *
- * El reparto sigue la proporción de una mesa de verdad: muchas fichas bajas
- * (hacen falta para las ciegas) y pocas altas, aunque las altas se lleven la
- * mayor parte del valor. Se consigue repartiendo el valor en proporción a la
- * raíz del valor de cada ficha, que para 0,10 / 0,50 / 1 € da un 10 / 40 / 50
- * muy parecido a como se reparte a mano.
+ * Dos pasos:
+ *  1. Un reparto ideal, en decimales: el valor se reparte en proporción a la
+ *     raíz del valor de cada ficha. Para 0,10 / 0,50 / 1 € da un 10 / 40 / 50,
+ *     muchas fichas bajas (hacen falta para las ciegas) y pocas altas.
+ *  2. Las fichas enteras más parecidas a ese ideal que sumen el buy-in EXACTO.
+ *     Es una mochila acotada (bounded knapsack) y se resuelve con programación
+ *     dinámica: prueba todas las combinaciones posibles, así que si existe un
+ *     reparto exacto lo encuentra. El ajuste a ojo de antes podía decir «no
+ *     cuadra» teniendo solución (p. ej. fichas de 0,20 y 0,50 para 0,60 €).
  *
  * @returns {{reparto: object, total: number, ok: boolean, avisos: string[]}}
  */
@@ -49,53 +56,76 @@ export function sugerirReparto(buyIn, fichas, numJugadores = 1) {
     };
   }
 
-  // Cuántas fichas de cada color puede llevarse un jugador sin dejar sin fichas
-  // a los demás. Sin unidades declaradas, sin tope.
-  const tope = (f) => (f.unidades > 0 ? Math.floor(f.unidades / Math.max(1, numJugadores)) : Infinity);
-
+  // 1. Ideal en decimales.
   const pesos = orden.map((f) => Math.sqrt(f.valor));
   const sumaPesos = pesos.reduce((a, b) => a + b, 0);
+  const ideal = orden.map((f, i) => Math.min(tope(f, numJugadores), (buyIn * pesos[i]) / sumaPesos / f.valor));
 
-  const reparto = {};
+  // 2. Programación dinámica sobre el importe, en «pasos» (el mcd de los valores).
+  // coste[s] = lo mínimo que hay que alejarse del ideal para sumar s pasos con
+  // los colores vistos hasta ahora. El alejamiento es relativo, (n - ideal)² / ideal,
+  // para que sobrar 2 negras pese más que sobrar 2 blancas.
+  const B = buyIn / paso;
+  let coste = new Float64Array(B + 1).fill(Infinity);
+  coste[0] = 0;
+  const elegido = [];                                  // por color: nº de fichas que lleva a cada s
   orden.forEach((f, i) => {
-    const objetivo = (buyIn * pesos[i]) / sumaPesos;      // valor que le toca a este color
-    reparto[f.id] = Math.min(tope(f), Math.max(0, Math.round(objetivo / f.valor)));
-  });
-
-  const suma = () => orden.reduce((t, f) => t + reparto[f.id] * f.valor, 0);
-
-  // Ajuste fino: se cierra la diferencia moviendo fichas, empezando por las de
-  // mayor valor que quepan, que es como se corrige a ojo sobre la mesa.
-  const desc = [...orden].reverse();
-  for (let vuelta = 0; vuelta < 1000; vuelta++) {
-    const dif = buyIn - suma();
-    if (dif === 0) break;
-    let movida = false;
-    if (dif > 0) {
-      for (const f of desc) {
-        if (f.valor <= dif && reparto[f.id] + 1 <= tope(f)) { reparto[f.id]++; movida = true; break; }
-      }
-    } else {
-      for (const f of desc) {
-        if (f.valor <= -dif && reparto[f.id] > 0) { reparto[f.id]--; movida = true; break; }
+    const u = f.valor / paso;
+    const max = Math.min(tope(f, numJugadores), Math.floor(B / u));
+    const nuevo = new Float64Array(B + 1).fill(Infinity);
+    const cuantas = new Int32Array(B + 1);
+    for (let s = 0; s <= B; s++) {
+      if (coste[s] === Infinity) continue;
+      for (let n = 0, t = s; n <= max && t <= B; n++, t += u) {
+        const c = coste[s] + (n - ideal[i]) ** 2 / Math.max(1, ideal[i]);
+        if (c < nuevo[t]) { nuevo[t] = c; cuantas[t] = n; }
       }
     }
-    if (!movida) break;       // no hay ficha que quepa: se sale con el aviso de abajo
+    elegido.push(cuantas);
+    coste = nuevo;
+  });
+
+  const reparto = Object.fromEntries(orden.map((f) => [f.id, 0]));
+  let total = 0;
+  if (coste[B] < Infinity) {
+    for (let i = orden.length - 1, s = B; i >= 0; i--) {
+      const n = elegido[i][s];
+      reparto[orden[i].id] = n;
+      s -= n * (orden[i].valor / paso);
+    }
+    total = buyIn;
   }
 
-  const total = suma();
   const ok = total === buyIn;
   if (!ok) {
     avisos.push(numJugadores > 1
       ? `No hay fichas suficientes para dar ${(buyIn / 100).toFixed(2)} € a ${numJugadores} jugadores.`
       : 'No hay fichas suficientes para formar el buy-in.');
   }
-  for (const f of orden) {
-    if (f.unidades > 0 && reparto[f.id] * numJugadores > f.unidades) {
-      avisos.push(`Faltan fichas ${f.nombre.toLowerCase()}.`);
+  return { reparto, total, ok, avisos };
+}
+
+/**
+ * El buy-in más alto y redondo que da la caja para estos jugadores: lo que
+ * vale la parte de cada uno, redondeado hacia abajo a 5 € si así se pierde
+ * poco (19,80 € no baja a 15, baja a 19), y bajando hasta que el reparto
+ * exacto exista. 0 si no se puede saber
+ * (algún color sin unidades declaradas) o no llega ni para un paso.
+ */
+export function buyInSugerido(fichas, numJugadores) {
+  const validas = fichas.filter((f) => f.valor > 0);
+  if (!validas.length || validas.some((f) => !(f.unidades > 0))) return 0;
+  const maximo = validas.reduce((t, f) => t + tope(f, numJugadores) * f.valor, 0);
+  const paso = validas.reduce((g, f) => mcd(g, f.valor), validas[0].valor);
+  for (const redondeo of [500, 100, paso]) {
+    const r = Math.max(redondeo, paso * Math.ceil(redondeo / paso));
+    if (maximo < r) continue;
+    const suelo = redondeo === 500 ? maximo * 0.85 : r;
+    for (let b = maximo - (maximo % r); b >= suelo; b -= r) {
+      if (sugerirReparto(b, validas, numJugadores).ok) return b;
     }
   }
-  return { reparto, total, ok, avisos };
+  return 0;
 }
 
 /** Cuántos jugadores aguanta la caja con este reparto. Infinity si no hay stock declarado. */
