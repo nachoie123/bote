@@ -5,3 +5,4 @@ node_modules/
 apple/*.xcodeproj
 apple/build/
 apple/DerivedData/
+apple/dist/
