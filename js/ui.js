@@ -35,12 +35,21 @@ const signoClase = (n) => (n > 0 ? 'gana' : n < 0 ? 'pierde' : '');
 const panel = $('#panel');
 const panelCuerpo = $('#panel-cuerpo');
 
+let focoPrevio = null;
 function abrirPanel(titulo, ...contenido) {
+  if (panel.hidden) focoPrevio = document.activeElement;
   $('#panel-titulo').textContent = titulo;
   vaciar(panelCuerpo).append(...contenido.flat().filter(Boolean));
   panel.hidden = false;
+  // Teclado/lector: el foco entra al diálogo (a la caja, para no abrir el teclado del móvil).
+  const caja = panelCuerpo.parentElement; caja.tabIndex = -1; caja.focus({ preventScroll: true });
 }
-function cerrarPanel() { panel.hidden = true; vaciar(panelCuerpo); }
+function cerrarPanel() {
+  panel.hidden = true; vaciar(panelCuerpo);
+  if (focoPrevio?.isConnected) focoPrevio.focus({ preventScroll: true });
+  focoPrevio = null;
+}
+addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !panel.hidden) cerrarPanel(); });
 panel.addEventListener('click', (ev) => { if (ev.target.dataset.cerrarPanel !== undefined) cerrarPanel(); });
 
 /** Confirmación propia: la nativa enseña el dominio y rompe la ilusión de app. */
@@ -181,7 +190,7 @@ function panelNuevaPartida() {
   const lista = h('div', { class: 'panel__cuerpo' });
 
   const añadirCampo = (valor = '') => {
-    const input = h('input', { type: 'text', value: valor, placeholder: 'Nombre', autocapitalize: 'words' });
+    const input = h('input', { type: 'text', value: valor, placeholder: 'Nombre', 'aria-label': 'Nombre del jugador', autocapitalize: 'words' });
     const fila = h('div', { style: 'display:flex;gap:8px;align-items:center' },
       input,
       h('button', {
@@ -420,7 +429,7 @@ function textoMovimiento(p, m) {
 }
 
 function panelAñadirJugador(p) {
-  const input = h('input', { type: 'text', placeholder: 'Nombre', autocapitalize: 'words' });
+  const input = h('input', { type: 'text', placeholder: 'Nombre', 'aria-label': 'Nombre', autocapitalize: 'words' });
   const meter = () => { if (input.value.trim()) { E.añadirJugador(p.id, input.value); cerrarPanel(); } };
   input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') meter(); });
   abrirPanel('Se sienta alguien más',
@@ -431,7 +440,7 @@ function panelAñadirJugador(p) {
 }
 
 function panelRenombrarPartida(p) {
-  const input = h('input', { type: 'text', value: p.nombre, placeholder: `Partida del ${fecha(p.fecha)}` });
+  const input = h('input', { type: 'text', value: p.nombre, 'aria-label': 'Nombre de la partida', placeholder: `Partida del ${fecha(p.fecha)}` });
   abrirPanel('Nombre de la partida',
     input,
     h('button', { class: 'btn btn--principal', onclick: () => { E.renombrarPartida(p.id, input.value.trim()); cerrarPanel(); pintar(); } }, 'Guardar'),
@@ -510,7 +519,7 @@ function panelPago(p, j, otros) {
 }
 
 function panelRenombrarJugador(p, j) {
-  const input = h('input', { type: 'text', value: j.nombre, autocapitalize: 'words' });
+  const input = h('input', { type: 'text', value: j.nombre, 'aria-label': 'Nombre del jugador', autocapitalize: 'words' });
   abrirPanel('Cambiar el nombre', input,
     h('button', { class: 'btn btn--principal', onclick: () => { E.renombrarJugador(p.id, j.id, input.value); cerrarPanel(); } }, 'Guardar'));
 }
@@ -524,6 +533,8 @@ function pintarContar() {
   const { cuadre } = r;
 
   const cuadrado = cuadre.todosContados && cuadre.diferencia === 0;
+  if (cuadrado && !pintarContar.cuadraba) nativo('vibrar');   // vibra al cuadrar, no en cada repintado
+  pintarContar.cuadraba = cuadrado;
   cont.append(h('div', { class: `cuadre ${cuadrado ? 'cuadre--ok' : cuadre.todosContados ? 'cuadre--mal' : ''}` },
     h('div', { class: 'cuadre__titulo' },
       cuadrado ? 'La cuenta cuadra' : `Contado ${euros(cuadre.finalTotal)} de ${euros(cuadre.baseTotal)}`),
@@ -672,8 +683,19 @@ function pintarReparto() {
       : h('button', { class: 'btn btn--fantasma', onclick: () => { E.cerrarPartida(p.id); ir('inicio', null); } }, 'Cerrar partida'));
 }
 
+/* ── puente con la app nativa (iPhone/Mac) ───────────────────────────────── */
+
+/** Solo existe dentro de la app de verdad (WKWebView). En la web devuelve false. */
+function nativo(tipo, datos = {}) {
+  const puente = window.webkit?.messageHandlers?.bote;
+  if (!puente) return false;
+  puente.postMessage({ tipo, ...datos });
+  return true;
+}
+
 async function compartir(resumen, titulo) {
   const texto = textoCompartir(resumen, { titulo });
+  if (nativo('compartir', { texto })) return;
   try {
     if (navigator.share) { await navigator.share({ text: texto }); return; }
     await navigator.clipboard.writeText(texto);
@@ -693,7 +715,7 @@ function tocaAvisarInstalar() {
   const instalada = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
   const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  return !instalada && esIOS && !localStorage.getItem('bote.instalar-visto');
+  return !instalada && esIOS && !window.webkit?.messageHandlers?.bote && !localStorage.getItem('bote.instalar-visto');
 }
 
 /** El aviso vive dentro del inicio, debajo de todo: así no tapa el pie. Se
@@ -719,6 +741,6 @@ const activa = E.partidaActiva();
 if (activa) { verId = activa.id; vista = activa.cerrada ? 'reparto' : 'partida'; }
 pintar();
 
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }

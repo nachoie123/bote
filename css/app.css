@@ -229,6 +229,8 @@ input[type='text'], input[type='number'], select {
   font: inherit;
   font-size: 17px;             /* menos de 16px hace que iOS haga zoom al enfocar */
 }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+.panel__caja:focus { outline: none; }
 input:focus, select:focus { outline: 2px solid var(--verde); outline-offset: 1px; }
 input[type='number'] { font-variant-numeric: tabular-nums; }
 select {

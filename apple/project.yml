@@ -1,0 +1,65 @@
+# Proyecto Xcode de Bote: la web de ../ dentro de una app SwiftUI (iPhone + Mac).
+#   cd apple && xcodegen generate
+name: Bote
+options:
+  bundleIdPrefix: com.nachosanbenito
+  deploymentTarget: { iOS: "17.0", macOS: "14.0" }
+  xcodeVersion: "16.0"
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.nachosanbenito.bote
+    DEVELOPMENT_TEAM: 4HBV76K3X6
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    GENERATE_INFOPLIST_FILE: NO
+targetTemplates:
+  Bote:
+    type: application
+    sources: [Bote]
+    # La web es la única fuente: se copia tal cual al paquete, en Resources/web (sin sw.js ni manifest).
+    postBuildScripts:
+      - name: Copiar la web al paquete
+        script: |
+          D="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/web"; rm -rf "$D"; mkdir -p "$D"
+          cp -R "$SRCROOT/../index.html" "$SRCROOT/../css" "$SRCROOT/../js" "$SRCROOT/../iconos" "$D/"
+        basedOnDependencyAnalysis: false
+targets:
+  Bote-iOS:
+    templates: [Bote]
+    platform: iOS
+    settings:
+      base:
+        PRODUCT_NAME: Bote
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    info:
+      path: Info-iOS.plist
+      properties:
+        CFBundleDisplayName: Bote
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIUserInterfaceStyle: Dark
+        UIViewControllerBasedStatusBarAppearance: false
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationCategoryType: public.app-category.utilities
+  Bote-macOS:
+    templates: [Bote]
+    platform: macOS
+    settings:
+      base:
+        PRODUCT_NAME: Bote
+        ENABLE_HARDENED_RUNTIME: YES
+    info:
+      path: Info-macOS.plist
+      properties:
+        CFBundleDisplayName: Bote
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        NSHumanReadableCopyright: "© 2026 Ignacio San Benito. MIT."
