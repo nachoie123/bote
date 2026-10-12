@@ -15,6 +15,11 @@ struct WebView: Representable {
         let puente = Puente()
         cfg.setURLSchemeHandler(Paquete(), forURLScheme: "bote")
         cfg.userContentController.add(puente, name: "bote")
+        #if DEBUG
+        if let e = Demo.escenario {   // capturas de la App Store: ver Demo.swift
+            cfg.userContentController.addUserScript(WKUserScript(source: Demo.script(e), injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+        #endif
         let w = WKWebView(frame: .zero, configuration: cfg)
         puente.web = w
         #if os(iOS)
