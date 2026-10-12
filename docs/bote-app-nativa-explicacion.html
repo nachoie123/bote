@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bote, la app, por dentro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ADN Xiaohei: blanco puro, línea negra temblona, naranja = camino/flujo, rojo = aviso/resultado, azul = nota del sistema.
+   NO hay cajas de colores, sombras, degradados ni tarjetas redondeadas: el dibujo manda y la ficha es una hoja de libreta. */
+:root{--ink:#141414;--paper:#fff;--or:#ee7a12;--red:#e0282e;--blue:#2a6fdb;--mute:#77756f;--rule:#d9d7d0}
+*{box-sizing:border-box}
+html{background:#fff}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.55 Kalam,"Comic Sans MS",cursive}
+.wrap{max-width:1180px;margin:0 auto;padding:48px 16px 96px}
+
+/* portada */
+header{display:grid;grid-template-columns:1fr 1.15fr;gap:24px;align-items:center}
+header h1{font:700 64px/0.95 Caveat,cursive;margin:0}
+header h1 em{font-style:normal;color:var(--or)}
+header p{margin:12px 0 0;max-width:520px}
+header .meta{font:12.5px "JetBrains Mono",monospace;color:var(--mute);margin-top:14px}
+header svg{width:100%;height:auto}
+ol.indice{columns:2;column-gap:40px;margin:36px 0 0;padding:0;list-style:none;counter-reset:l;border-top:1.5px solid var(--ink)}
+ol.indice li{counter-increment:l;break-inside:avoid;padding:7px 0;border-bottom:1px dashed var(--rule);font:600 21px/1.2 Caveat,cursive}
+ol.indice li::before{content:counter(l,decimal-leading-zero);color:var(--or);margin-right:10px;font-family:"JetBrains Mono",monospace;font-size:13px}
+ol.indice a{color:var(--ink);text-decoration:none}
+ol.indice small{display:block;margin-left:34px;font:14px/1.3 Kalam,cursive;color:var(--mute)}
+
+/* lámina */
+section.lamina{margin:96px 0 0}
+.lamina .num{font:13px "JetBrains Mono",monospace;color:var(--or);letter-spacing:.08em}
+.lamina h2{font:700 46px/1 Caveat,cursive;margin:2px 0 6px}
+.lamina .idea{font-size:19px;max-width:780px;margin:0}
+svg.dib{width:100%;height:auto;display:block;margin:10px 0 0}
+
+/* ficha técnica: hoja de libreta debajo del dibujo */
+.ficha{display:grid;grid-template-columns:260px 1fr;gap:0 32px;border-top:1.5px solid var(--ink);padding-top:14px;margin-top:6px}
+.ficha h3{font:700 24px/1.1 Caveat,cursive;margin:0 0 6px}
+.ficha .llano p{margin:0 0 10px;font-size:16px}
+.ficha table{width:100%;border-collapse:collapse;font-size:15.5px}
+.ficha th{font:600 12px "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);text-align:left;padding:0 10px 6px 0;border-bottom:1px solid var(--rule)}
+.ficha td{vertical-align:top;padding:8px 10px 8px 0;border-bottom:1px dashed var(--rule)}
+.ficha td:first-child{font:700 20px/1.15 Caveat,cursive;white-space:nowrap}
+.ficha .dato{margin:12px 0 0;padding:8px 0 0;font-size:15.5px;border-top:1px dashed var(--rule)}
+.ficha .dato b{color:var(--red);font-weight:400}
+code,.ref{font:12.5px/1.4 "JetBrains Mono",monospace}
+.ref{color:var(--blue);white-space:nowrap}
+code{background:#f4f3ef;padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+.ficha>div,header>div{min-width:0}
+.cierre{margin:110px 0 0;font:700 40px/1.15 Caveat,cursive;color:var(--red);text-align:center}
+
+/* trazo a mano dentro de los SVG */
+.sk{fill:none;stroke:var(--ink);stroke-width:2.3;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;filter:url(#wob)}
+.sk.w{fill:#fff}                     /* objeto opaco: tapa lo que hay detrás */
+.sk.or{stroke:var(--or)} .sk.red{stroke:var(--red)} .sk.blue{stroke:var(--blue)}
+.sk.fino{stroke-width:1.4} .sk.gordo{stroke-width:3.2} .sk.dash{stroke-dasharray:7 8}
+.tinta{fill:var(--ink);filter:url(#wob)}
+.brazo{fill:none;stroke:var(--ink);stroke-width:2.6;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;filter:url(#wob)}
+svg text{font:600 25px Caveat,cursive;fill:var(--ink)}
+svg text.g{font-size:32px}            /* rótulo grande */
+svg text.p{font-size:20px}            /* rótulo pequeño */
+svg text.code{font:13px "JetBrains Mono",monospace;fill:#444}
+svg text.or{fill:var(--or)} svg text.red{fill:var(--red)} svg text.blue{fill:var(--blue)} svg text.mute{fill:var(--mute)}
+
+@media (max-width:760px){
+  header{grid-template-columns:1fr} header h1{font-size:46px}
+  ol.indice{columns:1}
+  .lamina h2{font-size:36px}
+  .ficha{grid-template-columns:1fr}
+  .ficha table,.ficha tbody,.ficha tr,.ficha td{display:block;width:100%}
+  .ficha thead{display:none}
+  .ficha td{border:0;padding:2px 0} .ficha tr{border-bottom:1px dashed var(--rule);padding:8px 0}
+  .ref{white-space:normal;word-break:break-all}
+}
+/* modo captura: explicacion.html#solo-l3 enseña solo esa lámina (lo usa shot.sh) */
+body.solo header,body.solo .cierre,body.solo ol.indice,body.solo section.lamina{display:none}
+body.solo section.lamina.ver{display:block;margin-top:0}
+</style>
+</head>
+<body>
+<script>
+(function(){var m=location.hash.match(/^#solo-(.+)$/);if(!m)return;document.body.classList.add('solo');
+addEventListener('DOMContentLoaded',function(){var s=document.getElementById(m[1]);if(s)s.classList.add('ver')})})();
+</script>
+
+<!-- ═══════════ BIBLIOTECA DE DIBUJOS ═══════════
+  Todo se usa con <use href="#id" x=".." y=".."/> o dentro de <g transform="translate(x y) scale(s) rotate(r)">.
+  Son PIEZAS para componer una escena, no escenas hechas: cada lámina inventa su propia metáfora
+  y dibuja a mano lo que falte (paths propios con class="sk"). Medidas en el comentario de cada una. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <filter id="wob" filterUnits="userSpaceOnUse" x="-300" y="-300" width="1800" height="1300"><!-- espacio fijo: con % las rectas desaparecen -->
+    <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="4"/>
+    <feDisplacementMap in="SourceGraphic" scale="3"/>
+  </filter>
+  <marker id="ah" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M1 1.5 L10.5 6 L1 10.5" fill="none" stroke="#141414" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <marker id="ah-or" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M1 1.5 L10.5 6 L1 10.5" fill="none" stroke="#ee7a12" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <marker id="ah-red" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M1 1.5 L10.5 6 L1 10.5" fill="none" stroke="#e0282e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <marker id="ah-blue" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M1 1.5 L10.5 6 L1 10.5" fill="none" stroke="#2a6fdb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+
+  <!-- ── EL BICHITO (Xiaohei). Origen = entre los pies, en el suelo. Serio, inexpresivo, nunca mono.
+       Los BRAZOS los dibujas tú en cada escena con class="brazo" (de hombro a objeto) + <use href="#mano"> al final.
+       Hombros aprox: #xh (-24,-50)/(28,-52) · #xh-alto (-20,-70)/(23,-72) · #xh-bajo (-29,-30)/(31,-30) -->
+  <g id="xh"><!-- judía, alto ≈ 100 -->
+    <path class="tinta" d="M-24 -22 C-31 -52 -24 -89 0 -93 C25 -96 33 -63 29 -36 C27 -24 18 -18 5 -17 C-9 -16 -20 -14 -24 -22Z"/>
+    <path class="tinta" d="M-3 -92 L1 -101 L6 -93Z"/>
+    <circle cx="-7" cy="-66" r="3.6" fill="#fff"/><circle cx="9" cy="-67" r="3.6" fill="#fff"/>
+    <path class="sk fino" d="M-9 -18 L-11 0 L-17 0 M8 -18 L10 0 L16 0"/>
+  </g>
+  <g id="xh-alto"><!-- columna, alto ≈ 125 -->
+    <path class="tinta" d="M-21 -18 C-26 -60 -22 -118 0 -122 C22 -124 27 -80 24 -40 C23 -24 16 -18 4 -17 C-8 -16 -18 -13 -21 -18Z"/>
+    <circle cx="-6" cy="-96" r="3.4" fill="#fff"/><circle cx="8" cy="-97" r="3.4" fill="#fff"/>
+    <path class="sk fino" d="M-8 -18 L-10 0 L-16 0 M7 -18 L9 0 L15 0"/>
+  </g>
+  <g id="xh-bajo"><!-- rechoncho, alto ≈ 62 (sentado en taburete, dentro de una máquina, asomando de un agujero) -->
+    <path class="tinta" d="M-29 -14 C-34 -38 -22 -62 2 -62 C26 -62 36 -40 31 -18 C28 -10 16 -9 2 -9 C-14 -9 -26 -7 -29 -14Z"/>
+    <circle cx="-7" cy="-42" r="3.4" fill="#fff"/><circle cx="10" cy="-43" r="3.4" fill="#fff"/>
+    <path class="sk fino" d="M-10 -10 L-12 0 L-18 0 M10 -10 L12 0 L18 0"/>
+  </g>
+  <g id="xh-chato"><!-- aplastado bajo un peso, ancho ≈ 150 con brazos -->
+    <path class="tinta" d="M-40 -6 C-44 -22 -20 -30 2 -30 C26 -30 46 -22 42 -8 C40 0 20 2 0 2 C-20 2 -38 2 -40 -6Z"/>
+    <circle cx="-8" cy="-16" r="3.4" fill="#fff"/><circle cx="10" cy="-16" r="3.4" fill="#fff"/>
+    <path class="brazo" d="M-40 -10 L-70 -4 M-70 -4 l-6 -6 M-70 -4 l-7 3 M42 -10 L72 -4 M72 -4 l6 -6 M72 -4 l7 3 M-22 2 L-34 14 M24 2 L36 14"/>
+  </g>
+  <g id="mano"><!-- manita de 3 dedos al final de un brazo; origen = muñeca -->
+    <path class="brazo" d="M0 0 l7 -5 M0 0 l9 0 M0 0 l6 6"/>
+  </g>
+  <g id="sudor"><!-- marcas de esfuerzo/temblor junto a algo que cuesta o falla -->
+    <path class="sk fino" d="M0 0 c-4 -8 4 -12 0 -20 M10 2 c-4 -8 4 -12 0 -20"/>
+  </g>
+  <g id="chispa"><!-- brillo/acierto: 3 rayitas -->
+    <path class="sk fino" d="M0 -6 l0 -12 M10 0 l10 -8 M-10 0 l-10 -8"/>
+  </g>
+  <g id="alarma"><!-- rayitas rojas de "¡ojo!" a ambos lados; origen = centro de lo que avisa -->
+    <path class="sk red fino" d="M-34 -8 l-14 -10 M-34 4 l-16 0 M34 -8 l14 -10 M34 4 l16 0"/>
+  </g>
+
+  <!-- ── OBJETOS (origen arriba-izquierda salvo que se diga) -->
+  <g id="caja"><!-- caja de cartón 3D, 90×70; rótulo centrado en (35,50) -->
+    <path class="sk w" d="M0 20 H70 V70 H0Z"/><path class="sk w" d="M0 20 L18 4 H88 L70 20Z"/><path class="sk w" d="M70 20 L88 4 V54 L70 70Z"/>
+  </g>
+  <g id="hoja"><!-- folio con esquina doblada, 44×56 -->
+    <path class="sk w" d="M0 0 H32 L44 12 V56 H0Z"/><path class="sk fino" d="M32 0 V12 H44 M8 22 H36 M8 30 H36 M8 38 H28 M8 46 H34"/>
+  </g>
+  <g id="pila"><!-- montón de folios, 70×50 -->
+    <path class="sk w" d="M4 14 L62 6 L68 44 L10 52Z"/><path class="sk w" d="M0 8 L58 2 L64 40 L6 46Z"/><path class="sk fino" d="M12 16 L48 12 M13 24 L52 20 M14 32 L40 29"/>
+  </g>
+  <g id="tarjeta"><!-- ficha con foto y líneas, 130×64; posts, filas, resultados -->
+    <path class="sk w" d="M0 0 H130 V64 H0Z"/><path class="sk fino" d="M10 14 H44 V46 H10Z M12 44 L24 30 L32 38 L36 34 L44 44"/><circle class="sk fino" cx="36" cy="22" r="3"/>
+    <path class="sk fino" d="M54 18 H116 M54 30 H110 M54 42 H96"/>
+  </g>
+  <g id="video"><!-- ficha de vídeo con play, 130×64 -->
+    <path class="sk w" d="M0 0 H130 V64 H0Z"/><circle class="sk fino" cx="28" cy="32" r="14"/><path class="sk red fino" d="M23 24 L35 32 L23 40Z"/>
+    <path class="sk fino" d="M54 22 H116 M54 34 H108 M54 46 H92"/>
+  </g>
+  <g id="sobre"><!-- sobre cerrado, 80×52 -->
+    <path class="sk w" d="M0 0 H80 V52 H0Z"/><path class="sk fino" d="M0 0 L40 30 L80 0"/>
+  </g>
+  <g id="cartel"><!-- cartel en palo; origen = pie del palo; texto centrado en (0,-82) -->
+    <path class="sk" d="M0 0 V-62"/><path class="sk w" d="M-50 -110 H50 V-60 H-50Z"/>
+  </g>
+  <g id="pancarta"><!-- cartelito que sostiene el bichito; origen = mano; texto en (0,-44) -->
+    <path class="sk" d="M0 0 V-24"/><path class="sk w" d="M-30 -70 H30 V-24 H-30Z"/>
+  </g>
+  <g id="agujero"><!-- agujero en el suelo; origen = centro; 170×46 -->
+    <ellipse class="sk w" cx="0" cy="0" rx="84" ry="22"/><ellipse class="tinta" cx="0" cy="4" rx="68" ry="14"/>
+  </g>
+  <g id="grieta"><!-- grieta; origen = inicio -->
+    <path class="sk" d="M0 0 l14 8 l-6 10 l16 6 l-4 12 l14 4"/>
+  </g>
+  <g id="isla-izq"><!-- acantilado; borde del precipicio a la derecha en (300,0); la roca baja hasta y≈150 -->
+    <path fill="#fff" d="M4 14 C60 28 240 26 298 4 L288 40 L300 84 L286 150 L8 150 L14 80Z"/>
+    <path class="sk" d="M4 14 L14 80 L6 150 M298 4 L288 40 L300 84 L286 150"/>
+    <path class="sk fino" d="M250 50 l8 34 M270 34 l6 40 M232 92 l6 44 M190 70 l4 50 M262 110 l4 30"/>
+    <path class="sk w" d="M0 10 C20 -12 250 -16 300 0 C296 18 240 26 140 26 C60 26 4 22 0 10Z"/>
+    <path class="sk fino" d="M60 4 l4 -8 M64 4 l-2 -9 M150 -2 l3 -7 M200 8 h10"/>
+  </g>
+  <g id="isla-der"><!-- acantilado; borde del precipicio a la izquierda en (0,0) -->
+    <path fill="#fff" d="M2 4 C60 26 240 28 296 14 L286 80 L294 150 L14 150 L0 84 L12 40Z"/>
+    <path class="sk" d="M2 4 L12 40 L0 84 L14 150 M296 14 L286 80 L294 150"/>
+    <path class="sk fino" d="M50 50 l-8 34 M30 34 l-6 40 M68 92 l-6 44 M110 70 l-4 50 M38 110 l-4 30"/>
+    <path class="sk w" d="M0 0 C50 -16 280 -12 300 10 C296 22 240 26 160 26 C60 26 4 18 0 0Z"/>
+    <path class="sk fino" d="M240 4 l4 -8 M244 4 l-2 -9 M150 -2 l3 -7 M90 8 h10"/>
+  </g>
+  <g id="suelo"><!-- línea de suelo de 240; origen = extremo izquierdo -->
+    <path class="sk fino" d="M0 0 C60 2 180 -2 240 1 M20 7 l12 0 M90 6 l18 0 M170 7 l10 0"/>
+  </g>
+  <g id="embudo"><!-- embudo; origen = centro de la boca; 120×110 -->
+    <ellipse class="sk w" cx="0" cy="0" rx="60" ry="12"/><path class="sk w" d="M-60 0 L-10 70 V108 H10 V70 L60 0"/><path class="sk fino" d="M-60 0 C-40 10 40 10 60 0"/>
+  </g>
+  <g id="cinta"><!-- cinta transportadora 360 de largo; superficie de apoyo en y=0 -->
+    <path class="sk w" d="M0 0 H360 A14 14 0 0 1 360 28 H0 A14 14 0 0 1 0 0Z"/>
+    <circle class="sk fino" cx="0" cy="14" r="8"/><circle class="sk fino" cx="90" cy="14" r="8"/><circle class="sk fino" cx="180" cy="14" r="8"/><circle class="sk fino" cx="270" cy="14" r="8"/><circle class="sk fino" cx="360" cy="14" r="8"/>
+    <path class="sk" d="M20 28 L14 70 M340 28 L346 70"/>
+  </g>
+  <g id="maquina"><!-- máquina con ojos, 280×234; ventana (50,62)-(230,182) para meter al bichito; bocas en (-22,92..132) y (280..302,92..132) -->
+    <path class="sk w" d="M18 30 C10 30 0 40 0 56 V196 C0 212 10 220 24 220 H256 C270 220 280 212 280 196 V56 C280 40 270 30 256 30Z"/>
+    <path class="sk w" d="M50 62 H230 V182 H50Z"/>
+    <circle class="sk w" cx="110" cy="14" r="12"/><circle class="tinta" cx="113" cy="16" r="4.5"/><circle class="sk w" cx="170" cy="14" r="12"/><circle class="tinta" cx="173" cy="16" r="4.5"/>
+    <path class="sk w" d="M-22 92 H0 V132 H-22Z M280 92 H302 V132 H280Z"/>
+    <path class="sk fino" d="M96 198 H184 V210 H96Z"/><circle class="sk fino" cx="262" cy="46" r="3"/>
+    <path class="sk" d="M30 220 V234 M250 220 V234"/>
+  </g>
+  <g id="palanca"><!-- palanca; origen = centro de la base; pomo en (17,-67) -->
+    <path class="sk w" d="M-24 0 A24 24 0 0 1 24 0Z"/><path class="sk" d="M0 -8 L16 -62"/><circle class="sk w" cx="17" cy="-67" r="8"/>
+  </g>
+  <g id="manivela"><!-- manivela; origen = eje; el bichito agarra en (36,30) -->
+    <circle class="sk w" cx="0" cy="0" r="14"/><circle class="tinta" cx="0" cy="0" r="4"/><path class="sk gordo" d="M0 0 L30 26"/><path class="sk w" d="M28 24 l14 12 l-6 6 l-14 -12Z"/>
+  </g>
+  <g id="lupa"><!-- lupa; origen = centro de la lente r=28 -->
+    <circle class="sk w" cx="0" cy="0" r="28"/><path class="sk gordo" d="M20 20 L50 50"/><path class="sk fino" d="M-14 -10 a16 16 0 0 1 10 -10"/>
+  </g>
+  <g id="puerta"><!-- puerta de arco abierta; origen = abajo-izquierda; 110×130 -->
+    <path class="sk w" d="M0 0 V-90 C0 -128 70 -128 70 -90 V0Z"/><path class="tinta" d="M8 0 V-88 C8 -116 62 -116 62 -88 V0Z"/>
+    <path class="sk w" d="M62 0 L62 -92 C70 -120 100 -116 104 -96 L104 6Z"/><circle class="sk fino" cx="94" cy="-46" r="3"/>
+    <path class="sk" d="M-10 0 H82 M-4 -1 V8 H76 V-1"/>
+  </g>
+  <g id="buzon"><!-- buzón con bandera; origen = pie -->
+    <path class="sk" d="M0 0 V-46"/><path class="sk w" d="M-22 -46 V-70 C-22 -84 22 -84 22 -70 V-46Z"/><path class="tinta" d="M-14 -58 H-4 V-50 H-14Z"/>
+    <path class="sk" d="M24 -60 V-86"/><path class="sk red w" d="M24 -86 H36 L32 -81 L36 -76 H24"/>
+  </g>
+  <g id="cajonera"><!-- archivador de 3 cajones, 110×170; rótulos en (55,40) (55,95) (55,146) -->
+    <path class="sk w" d="M0 0 H110 V170 H0Z"/><path class="sk" d="M8 10 H102 V62 H8Z M8 66 H102 V118 H8Z M8 122 H102 V164 H8Z"/>
+    <path class="sk fino" d="M44 52 H66 M44 108 H66 M44 156 H66"/>
+  </g>
+  <g id="cajon-abierto"><!-- cajón sacado con fichas dentro, 110×74; origen arriba-izquierda -->
+    <path class="sk w" d="M10 20 L14 -8 H34 L30 20 M30 20 L36 -14 H56 L50 20 M52 20 L58 -4 H78 L72 20"/><path class="sk w" d="M0 20 H110 V60 H0Z"/><path class="sk fino" d="M44 44 H66"/>
+  </g>
+  <g id="movil"><!-- móvil, 90×170; pantalla (10,20)-(80,146) -->
+    <rect class="sk w" x="0" y="0" width="90" height="170" rx="14"/><path class="sk fino" d="M10 20 H80 V146 H10Z M36 158 H54"/>
+  </g>
+  <g id="portatil"><!-- portátil abierto, 186×108; pantalla (16,10)-(154,82) -->
+    <path class="sk w" d="M8 0 H162 V92 H8Z"/><path class="sk fino" d="M16 10 H154 V82 H16Z"/><path class="sk w" d="M-8 92 H178 L170 108 H0Z"/>
+  </g>
+  <g id="bombilla"><!-- bombilla; origen = rosca abajo -->
+    <path class="sk w" d="M-10 0 V-12 C-24 -22 -28 -50 0 -54 C28 -50 24 -22 10 -12 V0Z"/><path class="sk fino" d="M-10 -4 H10 M-6 -16 L-4 -34 L4 -28 L6 -16"/>
+  </g>
+  <g id="engranaje"><!-- rueda dentada r≈38; origen = centro -->
+    <path class="sk w" d="M-6 -38 H6 L8 -30 L17 -26 L24 -32 L32 -24 L26 -17 L30 -8 L38 -6 V6 L30 8 L26 17 L32 24 L24 32 L17 26 L8 30 L6 38 H-6 L-8 30 L-17 26 L-24 32 L-32 24 L-26 17 L-30 8 L-38 6 V-6 L-30 -8 L-26 -17 L-32 -24 L-24 -32 L-17 -26 L-8 -30Z"/>
+    <circle class="sk" cx="0" cy="0" r="9"/>
+  </g>
+  <g id="reloj"><!-- despertador (cron, launchd, horarios); origen = centro, r=30 -->
+    <circle class="sk w" cx="0" cy="0" r="30"/><path class="sk" d="M0 0 V-18 M0 0 L12 6"/><path class="sk w" d="M-30 -24 a12 12 0 0 1 16 -12 Z M30 -24 a12 12 0 0 0 -16 -12 Z"/><path class="sk" d="M-18 26 l-8 10 M18 26 l8 10"/>
+  </g>
+  <g id="llave"><!-- llave; origen = centro del ojo; 76 de largo -->
+    <circle class="sk w" cx="0" cy="0" r="14"/><path class="sk" d="M14 0 H62 M44 0 V10 M54 0 V8"/><circle class="tinta" cx="0" cy="0" r="4"/>
+  </g>
+  <g id="candado"><!-- candado; origen = abajo-centro -->
+    <path class="sk" d="M-14 -40 V-54 C-14 -72 14 -72 14 -54 V-40"/><path class="sk w" d="M-24 0 V-40 H24 V0Z"/><circle class="tinta" cx="0" cy="-22" r="4"/><path class="sk fino" d="M0 -20 V-10"/>
+  </g>
+  <g id="balanza"><!-- balanza de platillos; origen = base; platillos en (-80,-56) y (80,-68) -->
+    <path class="sk" d="M0 0 V-106 M-24 0 H24 M-80 -100 L80 -112"/>
+    <path class="sk" d="M-80 -100 L-100 -60 M-80 -100 L-60 -60 M80 -112 L60 -72 M80 -112 L100 -72"/>
+    <path class="sk w" d="M-104 -60 H-56 C-60 -48 -100 -48 -104 -60Z M56 -72 H104 C100 -60 60 -60 56 -72Z"/>
+  </g>
+  <g id="mapa"><!-- mapa plegado con ruta; 160×110 -->
+    <path class="sk w" d="M0 10 L52 0 L106 10 L160 0 V100 L106 110 L52 100 L0 110Z"/><path class="sk fino" d="M52 0 V100 M106 10 V110"/>
+    <path class="sk or dash fino" d="M18 84 C40 60 70 80 90 50 C110 24 130 40 142 26"/>
+  </g>
+  <g id="pin"><!-- chincheta de mapa; origen = punta -->
+    <path class="sk red w" d="M0 0 C-4 -12 -16 -22 -16 -34 A16 16 0 0 1 16 -34 C16 -22 4 -12 0 0Z"/><circle class="sk red" cx="0" cy="-34" r="5"/>
+  </g>
+  <g id="trompetilla"><!-- trompetilla para oír (transcribir/escuchar); origen = boquilla; abre a la derecha ~110 -->
+    <path class="sk w" d="M0 -4 C30 -6 60 -24 100 -46 C108 -20 108 20 100 46 C60 24 30 6 0 4Z"/><ellipse class="sk w" cx="102" cy="0" rx="8" ry="46"/>
+  </g>
+  <g id="ojo"><!-- ojo gigante (mirar/visión); origen = centro; 120×80 -->
+    <path class="sk w" d="M-60 0 C-30 -40 30 -40 60 0 C30 40 -30 40 -60 0Z"/><circle class="sk" cx="0" cy="0" r="20"/><circle class="tinta" cx="4" cy="2" r="9"/>
+  </g>
+  <g id="tijeras"><!-- tijeras abiertas; origen = eje -->
+    <path class="sk" d="M0 0 L60 -16 M0 0 L60 16"/><circle class="sk w" cx="-16" cy="-12" r="10"/><circle class="sk w" cx="-16" cy="12" r="10"/><path class="sk" d="M-8 -6 L0 0 L-8 6"/>
+  </g>
+  <g id="sello"><!-- sello de tampón; origen = base de la goma; mango arriba en (0,-44) -->
+    <path class="sk w" d="M-26 0 V-12 H26 V0Z"/><path class="sk w" d="M-8 -12 V-36 H8 V-12"/><ellipse class="sk w" cx="0" cy="-44" rx="16" ry="9"/>
+  </g>
+  <g id="taburete"><!-- taburete; origen = centro del asiento -->
+    <path class="sk w" d="M-36 0 H36 V8 H-36Z"/><path class="sk" d="M-30 8 L-36 48 M30 8 L36 48 M-14 8 L-12 44 M14 8 L12 44"/>
+  </g>
+  <g id="cubo"><!-- cubo; origen = centro de la boca -->
+    <path class="sk fino" d="M-34 0 C-30 -40 30 -40 34 0"/><path class="sk w" d="M-34 0 L-26 56 C-20 62 20 62 26 56 L34 0"/><ellipse class="sk w" cx="0" cy="0" rx="34" ry="9"/>
+  </g>
+  <g id="tubo"><!-- tubería en codo; origen = boca de entrada a la izquierda; sale abajo en (100,90) -->
+    <path class="sk w" d="M0 -12 H80 C100 -12 112 0 112 20 V90 H88 V24 C88 16 84 12 76 12 H0Z"/><path class="sk" d="M0 -16 V16 M84 90 H116"/>
+  </g>
+  <g id="escalera"><!-- escalera de mano, 64×150; origen = pie izquierdo -->
+    <path class="sk" d="M0 0 L14 -150 M50 0 L64 -150 M4 -30 H54 M7 -60 H57 M10 -90 H60 M13 -120 H63"/>
+  </g>
+  <g id="red"><!-- red de cazar mariposas; origen = mano en el mango -->
+    <path class="sk" d="M0 0 L70 -70"/><ellipse class="sk w" cx="88" cy="-88" rx="26" ry="20" transform="rotate(-45 88 -88)"/><path class="sk fino" d="M76 -70 C90 -40 120 -60 106 -100"/>
+  </g>
+</defs>
+</svg>
+
+<div class="wrap">
+
+<header>
+  <div>
+    <h1>Bote, la app<br><em>por dentro</em></h1>
+    <p>Bote era una web (cuenta las fichas de una partida de póker y dice quién paga a quién). Ahora es una app de verdad en iPhone y Mac: la misma web, metida en una maleta con pasaporte sellado por Apple. El motor no cambió ni una línea.</p>
+    <p class="meta">4 ficheros JS (1.310 líneas) + 3 Swift (175 líneas) · 43 tests · Bote.pkg 288 KB · build 1.0 (1) en TestFlight · leído el 12/10/2026</p>
+  </div>
+  <svg viewBox="0 0 640 420" role="img" aria-label="El bichito camina con una maleta en la que pone Bote y enseña un pasaporte con un sello">
+    <use href="#suelo" x="100" y="360"/><use href="#suelo" x="330" y="360"/>
+    <path class="sk w" d="M150 250 H330 Q344 250 344 264 V350 Q344 360 334 360 H150 Q140 360 140 350 V264 Q140 250 150 250Z"/>
+    <path class="sk" d="M140 300 H344 M218 250 V232 Q218 222 228 222 H256 Q266 222 266 232 V250"/>
+    <path class="sk w" d="M300 332 L326 320 L346 330 L340 352 L314 358Z"/>
+    <text class="p" x="306" y="348">Bote</text>
+    <use href="#xh" x="430" y="360"/>
+    <path class="brazo" d="M406 310 C380 300 356 296 348 292"/>
+    <path class="brazo" d="M458 308 C480 290 496 270 504 258"/>
+    <g transform="translate(470 180) rotate(8)"><use href="#hoja" transform="scale(1.5)"/></g>
+    <circle class="sk red" cx="505" cy="222" r="18"/><text class="p red" x="492" y="228">ok</text>
+    <text class="blue p" x="380" y="150">pasaporte sellado</text>
+    <path class="sk blue fino dash" d="M470 160 C480 170 490 182 496 192"/>
+  </svg>
+</header>
+
+<ol class="indice">
+  <li><a href="#l1">La maleta</a><small>las piezas: una web dentro de una app, sin reescribirla</small></li>
+  <li><a href="#l2">La fotocopiadora</a><small>cada compilación copia la web al paquete</small></li>
+  <li><a href="#l3">La ventanilla bote://</a><small>cómo se sirve la web desde dentro del paquete</small></li>
+  <li><a href="#l4">El tubo del puente</a><small>la web pide compartir y vibrar; Swift lo hace</small></li>
+  <li><a href="#l5">El sello en el pasaporte</a><small>firma, notarización, TestFlight y App Store</small></li>
+  <li><a href="#l6">Un viaje: pulsas «Compartir el reparto»</a><small>cinco paradas del botón a WhatsApp</small></li>
+  <li><a href="#l7">La balanza</a><small>una partida real: 140 € en fichas contra 140 € en metálico</small></li>
+  <li><a href="#l8">La carretera con baches</a><small>de la web de agosto a la App Store, con los tropiezos</small></li>
+  <li><a href="#l9">La cajonera de averías</a><small>síntoma → cajón → fichero</small></li>
+</ol>
+
+<!-- ═══════════ LÁMINA 1 · LAS PIEZAS ═══════════ -->
+<section class="lamina" id="l1">
+  <div class="num">LÁMINA 01 · LAS PIEZAS</div>
+  <h2>La maleta</h2>
+  <p class="idea">La app es una maleta: dentro va la web tal cual (index.html, css, js, iconos) y el bichito la cierra sentándose encima. La misma maleta sale hacia el iPhone (TestFlight) y hacia el Mac (Bote.pkg).</p>
+  <svg class="dib" viewBox="40 150 1120 400" role="img" aria-label="El bichito se sienta encima de la tapa de una maleta para cerrarla; asoman hojas de la web; flechas naranjas a un móvil y a un portátil">
+    <!-- lo que entra: la web -->
+    <g transform="translate(120 330)"><use href="#pila"/></g>
+    <text class="p" x="96" y="420">la web, tal cual</text>
+    <text class="code" x="96" y="442">index.html · css/ · js/ · iconos/</text>
+    <path class="sk or" d="M230 370 C290 370 320 380 360 400" marker-end="url(#ah-or)"/>
+    <!-- maleta: cuerpo -->
+    <path class="sk w" d="M400 330 H700 Q716 330 716 346 V480 Q716 496 700 496 H400 Q384 496 384 480 V346 Q384 330 400 330Z"/>
+    <path class="sk" d="M384 420 H716 M716 388 H736 V436 H716"/>
+    <!-- hojas que asoman por la rendija -->
+    <g transform="translate(676 286) rotate(28) scale(.8)"><use href="#hoja"/></g>
+    <g transform="translate(702 300) rotate(50) scale(.7)"><use href="#hoja"/></g>
+    <!-- tapa, entreabierta por la derecha -->
+    <path class="sk w" d="M384 330 V302 Q384 290 396 290 L704 270 Q716 269 716 281 V310Z"/>
+    <path class="sk fino" d="M400 316 L700 298"/>
+    <!-- etiqueta -->
+    <path class="sk w" d="M700 470 L740 452 L772 466 L764 500 L724 508Z"/>
+    <text class="p" x="708" y="486">Bote.app</text>
+    <!-- bichito sentado encima, empujando -->
+    <use href="#xh-bajo" x="550" y="284"/>
+    <path class="brazo" d="M521 254 C500 262 480 272 468 282"/><use href="#mano" x="466" y="284"/>
+    <path class="brazo" d="M581 254 C602 258 624 266 640 274"/><use href="#mano" x="642" y="276"/>
+    <use href="#sudor" x="470" y="226"/>
+    <text class="g" x="430" y="210">cerrar sin cambiar nada</text>
+    <!-- salidas -->
+    <path class="sk or" d="M740 400 C800 380 840 330 900 300" marker-end="url(#ah-or)"/>
+    <path class="sk or" d="M740 440 C800 450 840 470 900 480" marker-end="url(#ah-or)"/>
+    <g transform="translate(920 180)"><use href="#movil"/></g>
+    <text class="p" x="1020" y="250">iPhone</text><text class="p mute" x="1020" y="274">TestFlight</text>
+    <g transform="translate(910 430) scale(.9)"><use href="#portatil"/></g>
+    <text class="p" x="1090" y="470">Mac</text><text class="p mute" x="1090" y="494">Bote.pkg</text>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>Bote sigue siendo una web: cuatro ficheros de JavaScript, un HTML y un CSS. La app nativa es una ventana de Safari sin barras (un WKWebView) metida en un programa Swift de 175 líneas que la envuelve y le añade lo que una web no puede hacer: la hoja de compartir del sistema y la vibración.</p>
+      <p>Un solo proyecto (<code>project.yml</code>) genera dos apps con el mismo código: <code>Bote-iOS</code> y <code>Bote-macOS</code>. El JS no sabe que está dentro de una app, salvo por una función de 4 líneas que pregunta «¿hay puente?».</p></div>
+    <div><table><thead><tr><th>En el dibujo</th><th>Qué hace</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>Las hojas</td><td>La web entera: motor de cálculo (<code>motor.js</code>, 235 líneas, cero DOM), estado y guardado (<code>estado.js</code>), set de fichas (<code>fichas.js</code>) y pantallas (<code>ui.js</code>)</td><td><span class="ref">js/motor.js:59</span></td></tr>
+      <tr><td>La maleta</td><td>La ventana web dentro de SwiftUI; una sola vista para iPhone y Mac, con <code>#if os(iOS)</code> donde cambian</td><td><span class="ref">apple/Bote/WebView.swift:12</span></td></tr>
+      <tr><td>La tapa</td><td><code>BoteApp</code>: 15 líneas, ventana a pantalla completa, fondo del mismo verde oscuro que la web (11, 15, 13)</td><td><span class="ref">apple/Bote/BoteApp.swift:4</span></td></tr>
+      <tr><td>La etiqueta</td><td>Bundle id <code>com.nachosanbenito.bote</code>, equipo 4HBV76K3X6, iOS 17+ y macOS 14+</td><td><span class="ref">apple/project.yml:10</span></td></tr>
+      <tr><td>Los muñecos de prueba</td><td><code>Demo.swift</code>: una partida inventada para las capturas, solo en DEBUG y solo con <code>-demo</code></td><td><span class="ref">apple/Bote/Demo.swift:8</span></td></tr>
+      <tr><td>El sello del Mac</td><td><code>sellar.sh</code>: firma, instalador .pkg y notarización, compartido por todas las apps de Nacho</td><td><span class="ref">../apps-nativas/sellar.sh:32</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> el motor tiene 43 tests (17 de reparto, 14 de fichas, 12 de estado) y la app nativa no añadió ninguno: no toca el cálculo. <code>Bote.pkg</code> pesa 288 KB; el build de iPhone subido a Apple es el 1.0 (1).</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 2 · COPIAR LA WEB ═══════════ -->
+<section class="lamina" id="l2">
+  <div class="num">LÁMINA 02 · ETAPA · COMPILAR</div>
+  <h2>La fotocopiadora</h2>
+  <p class="idea">Cada vez que Xcode compila, un pequeño guion pasa la web por la fotocopiadora y deja la copia en el bolsillo del paquete (Resources/web). El original se queda en su sitio: la web sigue siendo la única fuente.</p>
+  <svg class="dib" viewBox="60 120 1080 440" role="img" aria-label="El bichito pulsa el botón de una fotocopiadora; encima está el original de la web y por la bandeja salen copias hacia una caja con el rótulo Resources/web">
+    <!-- original a la izquierda -->
+    <g transform="translate(130 300)"><use href="#pila"/></g>
+    <text class="p" x="110" y="390">el original</text>
+    <text class="code" x="110" y="412">~/Projects/bote</text>
+    <path class="sk or" d="M230 320 C280 300 320 280 380 262" marker-end="url(#ah-or)"/>
+    <!-- fotocopiadora -->
+    <path class="sk w" d="M400 300 H740 Q756 300 756 316 V470 Q756 486 740 486 H400 Q384 486 384 470 V316 Q384 300 400 300Z"/>
+    <path class="sk w" d="M420 300 V272 Q420 262 430 262 H700 Q710 262 710 272 V300Z"/>
+    <path class="sk fino" d="M440 262 L452 250 H720 L706 262"/>
+    <g transform="translate(470 236) rotate(-4) scale(.8)"><use href="#hoja"/></g>
+    <circle class="sk" cx="440" cy="330" r="10"/><circle class="tinta" cx="440" cy="330" r="4"/>
+    <path class="sk fino" d="M400 350 H740 M400 440 H740"/>
+    <path class="sk w" d="M756 400 L840 380 V420 L756 440Z"/>
+    <!-- copias saliendo -->
+    <g transform="translate(790 376) rotate(-12) scale(.75)"><use href="#hoja"/></g>
+    <g transform="translate(820 366) rotate(-14) scale(.75)"><use href="#hoja"/></g>
+    <path class="sk or" d="M850 390 C900 380 930 380 960 390" marker-end="url(#ah-or)"/>
+    <g transform="translate(980 360)"><use href="#caja"/></g>
+    <text class="code" x="978" y="458">Resources/web</text>
+    <!-- bichito pulsando el botón -->
+    <use href="#xh" x="330" y="486"/>
+    <path class="brazo" d="M358 434 C380 400 410 360 432 338"/><use href="#mano" x="430" y="336"/>
+    <text class="blue p" x="560" y="200">en cada compilación</text>
+    <text class="red p" x="560" y="526">sw.js y manifest no entran</text>
+    <text class="code" x="400" y="548">project.yml:24 · cp -R</text>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>No hay dos Botes que mantener. Si mañana arreglas algo en <code>js/ui.js</code>, la web lo tiene al subirlo y la app lo tiene al compilar: el guion de 2 líneas borra <code>Resources/web</code> y copia <code>index.html</code>, <code>css</code>, <code>js</code> e <code>iconos</code> otra vez.</p>
+      <p>Se quedan fuera el <code>sw.js</code> (la caché de la web para funcionar sin red: dentro de la app ya no hace falta, todo está en el paquete) y el <code>manifest.webmanifest</code> (el que dice «añádeme a la pantalla de inicio»).</p></div>
+    <div><table><thead><tr><th>En el dibujo</th><th>Qué hace</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>El botón</td><td>Fase de compilación «Copiar la web al paquete», se ejecuta siempre (<code>basedOnDependencyAnalysis: false</code>)</td><td><span class="ref">apple/project.yml:24</span></td></tr>
+      <tr><td>La bandeja</td><td><code>$TARGET_BUILD_DIR/…/web</code>: se vacía y se rellena con <code>cp -R</code></td><td><span class="ref">apple/project.yml:27</span></td></tr>
+      <tr><td>Las dos apps</td><td>La misma plantilla <code>Bote</code> sirve para los targets iOS y macOS</td><td><span class="ref">apple/project.yml:30</span></td></tr>
+      <tr><td>La plantilla</td><td><code>xcodegen generate</code> convierte el YAML en <code>Bote.xcodeproj</code> (que no se versiona)</td><td><span class="ref">apple/project.yml:2</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> la copia pesa lo que pesa la web: 1.310 líneas de JS, 1 CSS y los iconos. Ni una dependencia externa, ni un <code>npm install</code>: por eso la fotocopiadora tarda menos de un segundo.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 3 · SERVIR LA WEB ═══════════ -->
+<section class="lamina" id="l3">
+  <div class="num">LÁMINA 03 · ETAPA · SERVIR</div>
+  <h2>La ventanilla bote://</h2>
+  <p class="idea">La web no puede abrirse con file:// (los módulos JS no cargan). Así que el bichito atiende una ventanilla con su propio rótulo, bote://app: la pantalla pide index.html, él lo saca del archivador y lo entrega con la etiqueta de tipo puesta.</p>
+  <svg class="dib" viewBox="40 90 1120 470" role="img" aria-label="Un móvil pide index.html con un bocadillo; el bichito, detrás de una ventanilla con el rótulo bote://app, le pasa una hoja; detrás tiene un archivador; un candado tapa la salida de la carpeta">
+    <!-- el móvil que pide -->
+    <g transform="translate(120 300)"><use href="#movil"/></g>
+    <path class="sk fino" d="M150 250 C150 220 170 204 200 204 H330 Q350 204 350 224 V250 Q350 270 330 270 H230 L196 294 L206 270 H170 Q150 270 150 250Z"/>
+    <text class="p" x="166" y="244">¿index.html?</text>
+    <path class="sk or" d="M230 330 C300 330 340 334 380 340" marker-end="url(#ah-or)"/>
+    <!-- la ventanilla: pared con arco -->
+    <path class="sk w" d="M400 160 H760 V520 H400Z"/>
+    <path class="sk w" d="M440 350 V260 Q440 200 520 200 H640 Q720 200 720 260 V350Z"/>
+    <path class="sk" d="M400 350 H760"/>
+    <path class="sk w" d="M470 120 H690 V166 H470Z"/>
+    <text x="500" y="152">bote://app</text>
+    <!-- bichito detrás del mostrador -->
+    <use href="#xh-bajo" x="580" y="350"/>
+    <path class="brazo" d="M551 320 C520 326 480 334 440 340"/><use href="#mano" x="438" y="340"/>
+    <g transform="translate(404 310) rotate(-10) scale(.9)"><use href="#hoja"/></g>
+    <text class="code" x="364" y="396">text/html</text>
+    <!-- archivador detrás -->
+    <g transform="translate(640 240) scale(.55)"><use href="#cajonera"/></g>
+    <text class="code" x="636" y="212">Resources/web</text>
+    <!-- la salida bloqueada -->
+    <g transform="translate(760 440)"><use href="#candado"/></g>
+    <text class="red p" x="790" y="430">fuera de la carpeta: no</text>
+    <text class="code" x="790" y="452">hasPrefix · WebView.swift:54</text>
+    <!-- la vía que no funcionó -->
+    <text class="mute" x="820" y="200">file://</text>
+    <path class="sk red" d="M814 178 L892 212 M892 178 L814 212"/>
+    <text class="red p" x="820" y="246">los módulos no cargan</text>
+    <text class="blue p" x="820" y="320">mismo truco que una web</text>
+    <text class="blue p" x="820" y="344">pero sin salir del paquete</text>
+    <use href="#suelo" x="380" y="520"/><use href="#suelo" x="60" y="520"/>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>Una web necesita «alguien que le sirva los ficheros». En internet es el servidor; dentro de la app no hay ninguno, y abrir el HTML a pelo desde el disco (<code>file://</code>) rompe los <code>import</code> de JavaScript. La solución es registrar un esquema propio, <code>bote://</code>: cuando la web pide <code>bote://app/js/ui.js</code>, WebKit llama a la clase <code>Paquete</code>, que lee el fichero de <code>Resources/web</code> y lo devuelve con su tipo (<code>text/javascript</code>, <code>image/png</code>…).</p>
+      <p>Como ahora la página tiene un «origen» de verdad (<code>bote://app</code>), el <code>localStorage</code> funciona igual que en Safari: los datos sobreviven al cerrar la app.</p></div>
+    <div><table><thead><tr><th>En el dibujo</th><th>Qué hace</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>El rótulo</td><td><code>setURLSchemeHandler(Paquete(), forURLScheme: "bote")</code> y la carga inicial de <code>bote://app/index.html</code></td><td><span class="ref">apple/Bote/WebView.swift:16</span></td></tr>
+      <tr><td>El bichito</td><td><code>Paquete.webView(_:start:)</code>: traduce la ruta pedida a un fichero dentro de <code>Resources/web</code></td><td><span class="ref">apple/Bote/WebView.swift:50</span></td></tr>
+      <tr><td>La etiqueta de tipo</td><td>Tabla de 6 extensiones → tipo MIME (html, js, css, png, svg, json); lo demás, <code>application/octet-stream</code></td><td><span class="ref">apple/Bote/WebView.swift:47</span></td></tr>
+      <tr><td>El candado</td><td>Si la ruta, una vez limpiada, no empieza por la carpeta del paquete, responde «no existe»: nadie lee fuera con <code>../</code></td><td><span class="ref">apple/Bote/WebView.swift:54</span></td></tr>
+      <tr><td>La entrega</td><td><code>didReceive(URLResponse)</code> → <code>didReceive(Data)</code> → <code>didFinish()</code></td><td><span class="ref">apple/Bote/WebView.swift:58</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> una partida guardada vive en <code>localstorage.sqlite3</code>, dentro del contenedor de la app en el iPhone, bajo una sola clave: <code>bote.v1</code> (<span class="ref">js/estado.js:10</span>). Se comprobó en el simulador cerrando y reabriendo la app: los datos seguían ahí.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 4 · EL PUENTE ═══════════ -->
+<section class="lamina" id="l4">
+  <div class="num">LÁMINA 04 · ETAPA · EL PUENTE</div>
+  <h2>El tubo del puente</h2>
+  <p class="idea">La web no puede abrir la hoja de compartir de iOS ni hacer vibrar el móvil. Para eso hay un tubo: mete un mensaje por un lado (postMessage) y el bichito, al otro lado, en Swift, lo hace.</p>
+  <svg class="dib" viewBox="40 110 1120 450" role="img" aria-label="De la pantalla de un móvil sale un tubo; dentro viaja un sobre con la palabra compartir; al final el bichito lo recoge y levanta una hoja de compartir del sistema; al lado, una campana con rayitas rojas">
+    <!-- móvil con la web -->
+    <g transform="translate(110 260) scale(1.2)"><use href="#movil"/></g>
+    <text class="code" x="108" y="490">js/ui.js · nativo()</text>
+    <!-- tubo: de la pantalla a la derecha, con codo -->
+    <path class="sk" d="M214 330 H560 Q600 330 600 370 V430 H700 M214 356 H574 Q574 356 574 380 V456 H700"/>
+    <path class="sk fino" d="M230 330 V356 M700 430 V456"/>
+    <!-- sobre viajando dentro del tubo -->
+    <g transform="translate(380 328) scale(.5)"><use href="#sobre"/></g>
+    <text class="code" x="330" y="310">{tipo:'compartir', texto}</text>
+    <path class="sk or dash" d="M260 343 H360 M430 343 H560" marker-end="url(#ah-or)"/>
+    <!-- bichito recogiendo al final del tubo -->
+    <use href="#xh" x="800" y="500"/>
+    <path class="brazo" d="M776 450 C750 448 724 446 704 444"/><use href="#mano" x="702" y="444"/>
+    <path class="brazo" d="M828 448 C850 410 870 370 880 340"/>
+    <!-- hoja de compartir: una tarjeta con tres filas -->
+    <g transform="translate(860 240) rotate(-6)"><path class="sk w" d="M0 0 H180 V130 H0Z"/><path class="sk fino" d="M14 30 H166 M14 66 H166 M14 102 H166"/><circle class="sk fino" cx="30" cy="30" r="8"/><circle class="sk fino" cx="30" cy="66" r="8"/><circle class="sk fino" cx="30" cy="102" r="8"/></g>
+    <text class="p" x="880" y="212">hoja de compartir del sistema</text>
+    <!-- campana = vibrar -->
+    <g transform="translate(1040 470)"><path class="sk w" d="M-24 0 Q-24 -40 0 -46 Q24 -40 24 0Z"/><path class="sk" d="M-30 0 H30 M0 -46 V-54"/><circle class="sk fino" cx="0" cy="8" r="5"/></g>
+    <use href="#alarma" x="1040" y="446"/>
+    <text class="red p" x="990" y="516">vibra al cuadrar</text>
+    <text class="blue p" x="330" y="420">en la web no hay tubo:</text>
+    <text class="blue p" x="330" y="444">nativo() devuelve false</text>
+    <text class="code" x="700" y="548">Puente · WebView.swift:70</text>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>Solo hay dos cosas que la web no sabe hacer y la app sí: enseñar la hoja de compartir del sistema (la de Mensajes, WhatsApp, Notas…) y vibrar cuando la cuenta cuadra. El JS las pide por un buzón que WebKit instala con el nombre <code>bote</code>; si el buzón no existe (estás en Safari), <code>nativo()</code> devuelve <code>false</code> y la web sigue como siempre: copia al portapapeles o usa <code>navigator.share</code>.</p>
+      <p>Al otro lado, la clase <code>Puente</code> lee el tipo del mensaje y hace una de dos: <code>UIActivityViewController</code> en iPhone (o <code>NSSharingServicePicker</code> en Mac) para compartir, o un <code>UINotificationFeedbackGenerator</code> para la vibración.</p></div>
+    <div><table><thead><tr><th>En el dibujo</th><th>Qué hace</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>La boca del tubo</td><td><code>nativo(tipo, datos)</code>: si existe <code>window.webkit.messageHandlers.bote</code>, envía y devuelve <code>true</code></td><td><span class="ref">js/ui.js:689</span></td></tr>
+      <tr><td>El sobre «compartir»</td><td><code>compartir()</code> prepara el texto del reparto y prueba primero el tubo</td><td><span class="ref">js/ui.js:698</span></td></tr>
+      <tr><td>La campana</td><td>Solo cuando la cuenta pasa de no cuadrar a cuadrar, para no vibrar en cada repintado</td><td><span class="ref">js/ui.js:536</span></td></tr>
+      <tr><td>El bichito</td><td><code>Puente.userContentController(_:didReceive:)</code>: lee <code>tipo</code> y reparte</td><td><span class="ref">apple/Bote/WebView.swift:70</span></td></tr>
+      <tr><td>La hoja</td><td>iPhone: <code>UIActivityViewController</code> presentado sobre la ventana; Mac: <code>NSSharingServicePicker</code></td><td><span class="ref">apple/Bote/WebView.swift:84</span></td></tr>
+      <tr><td>La vibración</td><td><code>notificationOccurred(.success)</code>; en Mac no hace nada</td><td><span class="ref">apple/Bote/WebView.swift:96</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> el aviso «añádela a la pantalla de inicio» de la web se esconde solo dentro de la app: comprueba que no exista el buzón <code>bote</code> (<span class="ref">js/ui.js:718</span>). Es la única línea del JS que sabe que puede estar dentro de una app.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 5 · PUBLICAR ═══════════ -->
+<section class="lamina" id="l5">
+  <div class="num">LÁMINA 05 · ETAPA · PUBLICAR</div>
+  <h2>El sello en el pasaporte</h2>
+  <p class="idea">Apple es un portero. Para el Mac, el bichito sella el pasaporte él mismo (firma con Developer ID + notarización) y la app entra por la puerta principal con un .pkg de un clic. Para el iPhone no hay atajo: el pasaporte lo sella Apple en App Store Connect, primero para TestFlight y después para la tienda.</p>
+  <svg class="dib" viewBox="40 100 1120 460" role="img" aria-label="El bichito, detrás de un mostrador, estampa un sello sobre un pasaporte con el nombre Bote.pkg; al lado espera otro pasaporte, Bote.ipa; a la derecha, dos puertas con los rótulos Mac e iPhone y una nota roja en la del iPhone">
+    <!-- mostrador -->
+    <path class="sk w" d="M120 400 H620 V520 H120Z"/><path class="sk" d="M120 400 L140 380 H640 L620 400"/>
+    <!-- pasaportes -->
+    <g transform="translate(220 296) rotate(-4)"><path class="sk w" d="M0 0 H120 V80 H0Z"/><text class="code" x="14" y="30">Bote.pkg</text><path class="sk fino" d="M14 50 H100 M14 64 H70"/></g>
+    <g transform="translate(400 300) rotate(3)"><path class="sk w" d="M0 0 H120 V80 H0Z"/><text class="code" x="14" y="30">Bote.ipa</text><path class="sk fino" d="M14 50 H100 M14 64 H70"/></g>
+    <!-- sello estampando el primero -->
+    <g transform="translate(336 300)"><use href="#sello"/></g>
+    <circle class="sk red" cx="318" cy="346" r="20"/><text class="p red" x="110" y="300">Developer ID</text><path class="sk red fino dash" d="M226 292 C250 292 270 300 290 326"/>
+    <!-- bichito detrás del mostrador -->
+    <use href="#xh-alto" x="520" y="380"/>
+    <path class="brazo" d="M500 310 C450 290 380 270 342 258"/><use href="#mano" x="340" y="256"/>
+    <path class="brazo" d="M543 308 C560 320 570 340 572 360"/>
+    <text class="blue p" x="130" y="200">notarytool --wait</text>
+    <!-- puertas -->
+    <g transform="translate(760 500)"><use href="#puerta"/></g>
+    <text x="760" y="340">Mac</text><text class="p mute" x="760" y="364">.pkg de un clic</text>
+    <g transform="translate(960 500)"><use href="#puerta"/></g>
+    <text x="960" y="340">iPhone</text><text class="p mute" x="960" y="364">TestFlight → tienda</text>
+    <path class="sk or" d="M640 440 C690 444 720 452 750 462" marker-end="url(#ah-or)"/>
+    <path class="sk or" d="M640 412 C760 330 900 330 962 402" marker-end="url(#ah-or)"/>
+    <text class="red p" x="900" y="200">regla 4.2: «¿esto es una web?»</text>
+    <path class="sk red fino dash" d="M1000 236 C1010 270 1012 300 1010 330"/>
+    <text class="code" x="700" y="548">sellar.sh · ExportOptions-appstore.plist</text>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p><b>Mac.</b> La app se firma con el certificado «Developer ID Application: Ignacio San Benito», se mete en un instalador <code>.pkg</code> (doble clic → Instalar → aparece en Aplicaciones y se abre), se envía a Apple para que la escanee (notarización) y se grapa el resultado. La prueba de que está bien es que <code>spctl</code> diga <code>accepted</code> y <code>source=Notarized Developer ID</code>. Está publicada: release <code>v1.0-mac</code> en GitHub.</p>
+      <p><b>iPhone.</b> Xcode crea un archivo firmado por Apple en la nube («Cloud Managed Apple Distribution») y lo sube. En App Store Connect la ficha se llama «Bote – Fichas de póker» (el nombre «Bote» a secas ya estaba cogido), id 6821735863. El build 1.0 (1) está en TestFlight; falta la ficha y mandarlo a revisión. El riesgo es que Apple diga que es «una web envuelta» (regla 4.2). Defensa: funciona sin red, no abre ninguna URL, tiene compartir y vibración nativos. Si lo rechazan, se queda la versión de Mac.</p></div>
+    <div><table><thead><tr><th>En el dibujo</th><th>Qué hace</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>El sello</td><td><code>sellar.sh firmar</code>: <code>codesign --options runtime --timestamp</code> con Developer ID</td><td><span class="ref">../apps-nativas/sellar.sh:17</span></td></tr>
+      <tr><td>El pasaporte Bote.pkg</td><td><code>sellar.sh pkg</code>: <code>pkgbuild</code> a /Applications + guion que abre la app al terminar</td><td><span class="ref">../apps-nativas/sellar.sh:32</span></td></tr>
+      <tr><td>El visto bueno</td><td><code>sellar.sh notarizar</code>: notarytool, stapler y la comprobación con <code>spctl</code></td><td><span class="ref">../apps-nativas/sellar.sh:39</span></td></tr>
+      <tr><td>El pasaporte Bote.ipa</td><td><code>xcodebuild archive</code> + <code>-exportArchive</code> con método <code>app-store-connect</code> y firma automática</td><td><span class="ref">apple/ExportOptions-appstore.plist:4</span></td></tr>
+      <tr><td>La aduana</td><td><code>ITSAppUsesNonExemptEncryption: false</code>: no pide el cuestionario de cifrado</td><td><span class="ref">apple/project.yml:49</span></td></tr>
+      <tr><td>La puerta del Mac</td><td><code>ENABLE_HARDENED_RUNTIME: YES</code>, obligatorio para notarizar</td><td><span class="ref">apple/project.yml:57</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> política de privacidad en <code>bote.nachosanbenito.com/privacidad.html</code>: «Bote no recoge ningún dato». Es verdad literal: no hay servidor, ni cuenta, ni analítica; el único momento en que algo sale del móvil es cuando TÚ pulsas Compartir.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 6 · UN VIAJE ═══════════ -->
+<section class="lamina" id="l6">
+  <div class="num">LÁMINA 06 · UN VIAJE</div>
+  <h2>Pulsas «Compartir el reparto»</h2>
+  <p class="idea">Un toque recorre cinco paradas: el botón, el texto del reparto, el tubo, el bichito en Swift y la hoja de compartir. El bichito lleva el sobre de una a otra.</p>
+  <svg class="dib" viewBox="40 90 1120 470" role="img" aria-label="Un camino naranja con cinco paradas numeradas va desde un móvil, a la izquierda, hasta un sobre abierto a la derecha; el bichito camina por el medio llevando un sobre">
+    <path class="sk or gordo" d="M200 440 C300 440 320 300 440 300 C560 300 560 420 700 420 C840 420 820 260 980 260" marker-end="url(#ah-or)"/>
+    <!-- paradas -->
+    <g transform="translate(110 300)"><use href="#movil"/></g>
+    <circle class="sk w" cx="200" cy="440" r="16"/><text class="p" x="194" y="447">1</text>
+    <text class="p" x="60" y="500">el botón verde<tspan class="code" x="60" dy="22">ui.js:680</tspan></text>
+    <circle class="sk w" cx="440" cy="300" r="16"/><text class="p" x="434" y="307">2</text>
+    <text class="p" x="380" y="250">escribir el reparto<tspan class="code" x="380" dy="22">textoCompartir · motor.js:226</tspan></text>
+    <circle class="sk w" cx="600" cy="372" r="16"/><text class="p" x="594" y="379">3</text>
+    <text class="p" x="560" y="470">por el tubo<tspan class="code" x="560" dy="22">nativo · ui.js:689</tspan></text>
+    <circle class="sk w" cx="760" cy="416" r="16"/><text class="p" x="754" y="423">4</text>
+    <text class="p" x="720" y="500">Swift lo recibe<tspan class="code" x="720" dy="22">Puente · WebView.swift:70</tspan></text>
+    <circle class="sk w" cx="980" cy="260" r="16"/><text class="p" x="974" y="267">5</text>
+    <g transform="translate(1010 170) rotate(-8)"><use href="#sobre"/></g>
+    <text class="p" x="1010" y="300">la hoja del sistema<tspan class="code" x="1010" dy="22">WebView.swift:84</tspan></text>
+    <!-- bichito en el camino entre 3 y 4 -->
+    <use href="#xh" x="680" y="420"/>
+    <path class="brazo" d="M704 370 C720 360 736 352 748 346"/>
+    <g transform="translate(748 316) rotate(10) scale(.6)"><use href="#sobre"/></g>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>El botón vive en la pantalla de reparto. Al tocarlo, el JS convierte el resumen de la partida en texto plano («Marta +32,00 €… Dani → Marta 30,00 €») y pregunta si hay tubo. Dentro de la app lo hay: el mensaje llega a <code>Puente</code>, que busca la ventana de arriba del todo y le presenta la hoja de compartir con ese texto. Tú eliges WhatsApp, Mensajes o Notas; la app no se entera de a quién.</p>
+      <p>En la web, sin tubo, el mismo botón prueba <code>navigator.share</code> y, si no existe, copia al portapapeles.</p></div>
+    <div><table><thead><tr><th>Parada</th><th>Qué hace</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>1 · El botón</td><td>«Compartir el reparto», en <code>pintarReparto</code>, llama a <code>compartir(r, titulo)</code></td><td><span class="ref">js/ui.js:680</span></td></tr>
+      <tr><td>2 · El texto</td><td><code>textoCompartir(resumen, {titulo})</code>: resultados por jugador y lista de pagos</td><td><span class="ref">js/motor.js:226</span></td></tr>
+      <tr><td>3 · El tubo</td><td><code>nativo('compartir', {texto})</code> → <code>postMessage</code> al buzón <code>bote</code></td><td><span class="ref">js/ui.js:689</span></td></tr>
+      <tr><td>4 · Swift</td><td><code>Puente</code> lee <code>tipo == "compartir"</code> y saca el texto</td><td><span class="ref">apple/Bote/WebView.swift:73</span></td></tr>
+      <tr><td>5 · La hoja</td><td>Busca el <code>rootViewController</code> (y el que tenga presentado encima) y le presenta <code>UIActivityViewController</code></td><td><span class="ref">apple/Bote/WebView.swift:84</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> en Mac la parada 5 es <code>NSSharingServicePicker</code> anclado 60 puntos por encima del borde inferior de la ventana (<span class="ref">apple/Bote/WebView.swift:89</span>), que es donde está el botón.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 7 · LOS DATOS ═══════════ -->
+<section class="lamina" id="l7">
+  <div class="num">LÁMINA 07 · LOS DATOS</div>
+  <h2>La balanza</h2>
+  <p class="idea">Seguimos la partida de ejemplo de las capturas, «Sábado en casa de Marta»: 5 jugadores, 7 entradas de 20 €. Todo es una balanza: a un lado el dinero que se metió en la mesa, al otro lo que valen las fichas contadas. Cuando pesan igual, se reparte.</p>
+  <svg class="dib" viewBox="40 100 1120 460" role="img" aria-label="El bichito deja la última ficha en el platillo izquierdo de una balanza; en el derecho hay monedas; los dos platillos están a la misma altura y unas rayitas marcan el acierto; a la derecha, una lista de cuatro pagos">
+    <g transform="translate(420 500) scale(1.5)"><use href="#balanza"/></g>
+    <!-- fichas en el platillo izquierdo (-80,-56)*1.5 = (-120,-84) -->
+    <g transform="translate(300 416)"><ellipse class="sk w" cx="0" cy="-10" rx="22" ry="7"/><ellipse class="sk w" cx="0" cy="-20" rx="22" ry="7"/><ellipse class="sk w" cx="0" cy="-30" rx="22" ry="7"/><ellipse class="sk w" cx="26" cy="-10" rx="22" ry="7"/><ellipse class="sk w" cx="26" cy="-20" rx="22" ry="7"/></g>
+    <text class="p" x="200" y="330">140 € en fichas</text>
+    <!-- monedas en el platillo derecho (80,-68)*1.5 = (120,-102) -->
+    <g transform="translate(540 398)"><circle class="sk w" cx="0" cy="-10" r="12"/><circle class="sk w" cx="24" cy="-12" r="12"/><circle class="sk w" cx="12" cy="-30" r="12"/></g>
+    <text class="p" x="580" y="330">140 € metidos</text>
+    <use href="#chispa" x="420" y="300"/>
+    <text class="red" x="380" y="270">cuadra</text>
+    <!-- bichito soltando la última ficha -->
+    <use href="#xh" x="160" y="500"/>
+    <path class="brazo" d="M188 448 C220 430 250 412 272 396"/>
+    <ellipse class="sk w" cx="284" cy="386" rx="20" ry="6"/>
+    <text class="p mute" x="60" y="540">5 jugadores · 7 entradas</text>
+    <!-- lista de pagos -->
+    <path class="sk or" d="M620 460 C680 470 720 470 780 470" marker-end="url(#ah-or)"/>
+    <g transform="translate(810 360)"><path class="sk w" d="M0 0 H300 V190 H0Z"/><path class="sk fino" d="M0 48 H300 M0 96 H300 M0 144 H300"/></g>
+    <text class="p" x="826" y="392">Dani → Marta<tspan x="1030">30,00 €</tspan></text>
+    <text class="p" x="826" y="440">Lucas → Nacho<tspan x="1030">18,50 €</tspan></text>
+    <text class="p" x="826" y="488">Lucas → Sofía<tspan x="1030">7,20 €</tspan></text>
+    <text class="p" x="826" y="536">Lucas → Marta<tspan x="1030">2,00 €</tspan></text>
+    <text class="blue p" x="810" y="330">4 pagos y la noche saldada</text>
+    <text class="code" x="200" y="200">calcular · motor.js:59 → repartir · motor.js:198</text>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>Todo el dinero se guarda en céntimos y en una sola clave de <code>localStorage</code>, <code>bote.v1</code>. La partida es un objeto con sus jugadores, sus movimientos (entradas, recompras, compras entre jugadores, pagos) y el conteo de fichas de cada uno. El motor no sabe de pantallas: recibe ese objeto y devuelve el resumen.</p>
+      <p>En la partida de ejemplo, Lucas y Dani recompraron (40 € cada uno) y la mesa suma 140 €. Al contar, Marta acabó con 52 €, Nacho con 38,50, Sofía con 27,20, Lucas con 12,30 y Dani con 10. Suma 140: cuadra. Con eso el repartidor saca los pagos mínimos: cuatro, en vez de que todos le paguen a todos.</p></div>
+    <div><table><thead><tr><th>En el dibujo</th><th>Qué hace</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>La partida</td><td>Se lee de <code>localStorage</code> al arrancar; si la versión no es la 1, estado limpio</td><td><span class="ref">js/estado.js:31</span></td></tr>
+      <tr><td>Cada cambio</td><td><code>commit(mutación)</code>: única puerta de escritura; guarda y repinta</td><td><span class="ref">js/estado.js:50</span></td></tr>
+      <tr><td>La balanza</td><td><code>calcular(partida)</code>: base por jugador, valor de las fichas contadas, diferencia</td><td><span class="ref">js/motor.js:59</span></td></tr>
+      <tr><td>«cuadra»</td><td>Solo si todos están contados y la diferencia es 0 se llama a <code>repartir</code></td><td><span class="ref">js/motor.js:198</span></td></tr>
+      <tr><td>Las fichas de ejemplo</td><td>El JSON de la partida demo, con las 7 entradas y los 5 conteos</td><td><span class="ref">apple/Bote/Demo.swift:16</span></td></tr>
+      <tr><td>Abrir donde estabas</td><td>Al arrancar, si hay partida activa, va directo a ella (partida o reparto)</td><td><span class="ref">js/ui.js:741</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real</b> (la fila de Nacho en la demo): <code>{"negra":25,"roja":25,"blanca":10}</code> → 25 × 1,00 + 25 × 0,50 + 10 × 0,10 = <b>38,50 €</b>; puso 20,00, así que gana 18,50, y es justo lo que Lucas le paga. La primera versión de estos datos contaba 109 fichas negras y la app avisó: «solo hay 100».</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 8 · HISTORIA ═══════════ -->
+<section class="lamina" id="l8">
+  <div class="num">LÁMINA 08 · CÓMO SE CONSTRUYÓ</div>
+  <h2>La carretera con baches</h2>
+  <p class="idea">Siete semanas: de una web hecha en un día (25/08) a un build en TestFlight (11/10). Los hitos van en carteles; los baches rojos son los tropiezos que cambiaron el plan.</p>
+  <svg class="dib" viewBox="40 150 1120 400" role="img" aria-label="Una carretera ondulada con cinco carteles de fechas y cuatro baches rojos; el bichito tira de la maleta hacia el último cartel">
+    <path class="sk" d="M60 470 C200 470 240 440 380 440 C520 440 560 480 700 480 C840 480 880 430 1140 430"/>
+    <path class="sk" d="M60 500 C200 500 240 470 380 470 C520 470 560 510 700 510 C840 510 880 460 1140 460"/>
+    <path class="sk fino dash" d="M60 485 C200 485 240 455 380 455 C520 455 560 495 700 495 C840 495 880 445 1140 445"/>
+    <!-- carteles -->
+    <g transform="translate(130 470)"><use href="#cartel"/></g><text class="p" x="100" y="384">25/08 · la web</text>
+    <g transform="translate(360 440)"><use href="#cartel"/></g><text class="p" x="310" y="354">01/10 · reparto exacto</text>
+    <g transform="translate(600 476)"><use href="#cartel"/></g><text class="p" x="548" y="390">11/10 · app nativa</text>
+    <g transform="translate(830 474)"><use href="#cartel"/></g><text class="p" x="770" y="388">11/10 · .pkg + TestFlight</text>
+    <g transform="translate(1080 430)"><use href="#cartel"/></g><text class="p" x="1030" y="344">12/10 · capturas</text>
+    <!-- baches -->
+    <g transform="translate(480 456) scale(.5)"><use href="#agujero"/></g><text class="red p" x="420" y="540">file:// no carga</text>
+    <g transform="translate(700 496) scale(.5)"><use href="#agujero"/></g><text class="red p" x="660" y="546">«Bote» ya cogido</text>
+    <g transform="translate(940 456) scale(.5)"><use href="#agujero"/></g><text class="red p" x="890" y="540">teclear en el simulador</text>
+    <g transform="translate(1030 448) scale(.4)"><use href="#agujero"/></g><text class="red p" x="1000" y="514">6,9" rechazadas</text>
+    <!-- bichito tirando de la maleta -->
+    <use href="#xh" x="250" y="470"/>
+    <path class="brazo" d="M226 420 C232 426 232 430 228 434"/>
+    <g transform="translate(166 414)"><path class="sk w" d="M0 0 H50 V40 H0Z"/><path class="sk" d="M50 20 H60"/><circle class="sk fino" cx="10" cy="44" r="4"/><circle class="sk fino" cx="40" cy="44" r="4"/></g>
+    <text class="blue p" x="60" y="230">el motor no cambió<tspan x="60" dy="24">en ninguna fase</tspan></text>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>La web nació el 25/08 de una tarde: contador de fichas y reparto de dinero. El 24/09 cambió de dominio (el .me caducó). El 01/10 llegó el repartidor de fichas exacto: una mochila (programación dinámica) que encuentra cuántas fichas de cada color dar para sumar justo el buy-in.</p>
+      <p>El 11/10, con la cuenta de Apple Developer recién pagada, se hizo la app: proyecto Xcode, WebView, puente, política de privacidad, .pkg de Mac notarizado, ficha en App Store Connect y build subido a TestFlight. Hoy, 12/10, las capturas con una partida de ejemplo.</p></div>
+    <div><table><thead><tr><th>Bache</th><th>Qué pasó</th><th>Dónde quedó</th></tr></thead><tbody>
+      <tr><td>file:// no carga</td><td>Con <code>loadFileURL</code> los <code>import</code> del JS no funcionan y el <code>localStorage</code> no es fiable. Solución: esquema propio <code>bote://</code></td><td><span class="ref">apple/Bote/WebView.swift:46</span></td></tr>
+      <tr><td>«Bote» ya cogido</td><td>El nombre estaba registrado por otra app; la ficha se llama «Bote – Fichas de póker»</td><td><span class="ref">apple/project.yml:41</span></td></tr>
+      <tr><td>Teclear en el simulador</td><td>El teclado simulado pega y pierde el foco. En vez de teclear nombres, se inyecta la partida con un script de usuario, solo en DEBUG</td><td><span class="ref">apple/Bote/WebView.swift:19</span></td></tr>
+      <tr><td>6,9" rechazadas</td><td>App Store Connect ahora pide 1206 × 2622 (6,3"); las de 1320 × 2868 dieron «dimensiones no válidas» y se redimensionaron</td><td><span class="ref">apple/capturas.sh:15</span></td></tr>
+      <tr><td>Hito: reparto exacto</td><td>Commit <code>6d97458</code>: mochila acotada en vez de ajuste a ojo</td><td><span class="ref">js/fichas.js:33</span></td></tr>
+      <tr><td>Hito: app nativa</td><td>Commit <code>26b662e</code>: <code>apple/</code> con WKWebView, puente y privacidad</td><td><span class="ref">apple/project.yml:1</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> 11 commits en total; 9 son de la web y solo 2 de la app nativa (más el de hoy con el modo demo). La app pesa 175 líneas de Swift porque la web ya hacía todo lo demás.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ LÁMINA 9 · AVERÍAS ═══════════ -->
+<section class="lamina" id="l9">
+  <div class="num">LÁMINA 09 · DÓNDE TOCAR SI SE ROMPE</div>
+  <h2>La cajonera de averías</h2>
+  <p class="idea">Cinco cajones, uno por síntoma. El bichito abre el que toca con la lupa y dentro está el fichero.</p>
+  <svg class="dib" viewBox="40 90 1120 470" role="img" aria-label="Una cajonera alta con tres cajones rotulados por síntoma; el segundo está sacado y dentro hay una ficha con el fichero; el bichito, al lado, lo mira con una lupa; a la derecha, dos avisos rojos más">
+    <g transform="translate(300 130) scale(1.55 1.65)"><use href="#cajonera"/></g>
+    <text class="p" x="340" y="196">pantalla en blanco</text>
+    <text class="p" x="340" y="286">no comparte</text>
+    <text class="p" x="340" y="372">partidas perdidas</text>
+    <!-- cajón sacado, con su ficha -->
+    <g transform="translate(472 245) scale(1.4 1.15)"><use href="#cajon-abierto"/></g>
+    <g transform="translate(510 272) rotate(-3) scale(.9)"><use href="#tarjeta"/></g>
+    <text class="code" x="520" y="352">WebView.swift:17</text>
+    <!-- bichito con la lupa sobre el cajón -->
+    <use href="#xh" x="740" y="420"/>
+    <path class="brazo" d="M716 370 C700 350 680 334 666 322"/>
+    <g transform="translate(640 300) rotate(-20)"><use href="#lupa"/></g>
+    <path class="brazo" d="M768 368 C790 380 804 392 812 404"/>
+    <!-- los dos que no caben en un cajón -->
+    <text class="red p" x="860" y="180">Apple dice «regla 4.2»</text>
+    <text class="p mute" x="860" y="204">plan B: solo Mac, ya publicado</text>
+    <text class="red p" x="860" y="270">Mac: «no se puede abrir»</text>
+    <text class="p mute" x="860" y="294">sellar.sh notarizar · spctl</text>
+    <text class="blue p" x="60" y="200">síntoma → cajón → fichero</text>
+    <use href="#suelo" x="120" y="420"/><use href="#suelo" x="360" y="420"/><use href="#suelo" x="600" y="420"/>
+  </svg>
+  <div class="ficha">
+    <div class="llano"><h3>En cristiano</h3>
+      <p>Casi todo lo que puede fallar en la app está en un sitio: o la web no se copió, o el puente no se llama igual en los dos lados, o la ruta pedida no existe en el paquete. Antes de tocar Swift, abre la web en Safari: si ahí también falla, el problema es del JS y los 43 tests (<code>npm test</code>) te dicen cuál.</p></div>
+    <div><table><thead><tr><th>Cajón</th><th>Causa probable</th><th>Dónde</th></tr></thead><tbody>
+      <tr><td>Pantalla en blanco</td><td>La fase «Copiar la web al paquete» no corrió o <code>Resources/web</code> no existe; o la ruta pedida no está en la tabla de tipos</td><td><span class="ref">apple/project.yml:24</span></td></tr>
+      <tr><td>No comparte ni vibra</td><td>El buzón se registra con el nombre <code>bote</code> y el JS lo busca con el mismo nombre: si cambia uno, cambia el otro</td><td><span class="ref">apple/Bote/WebView.swift:17</span></td></tr>
+      <tr><td>Se perdieron las partidas</td><td>Cambió el bundle id (es otro contenedor) o el esquema (es otro origen de <code>localStorage</code>); o el estado tenía otra versión y <code>leer()</code> empezó de cero</td><td><span class="ref">js/estado.js:33</span></td></tr>
+      <tr><td>Apple dice 4.2</td><td>«Web envuelta». Defensa en la nota de revisión: sin red, sin URLs, compartir y háptica nativos. Si no cuela, se queda el Mac</td><td><span class="ref">apple/project.yml:49</span></td></tr>
+      <tr><td>Mac: no se puede abrir</td><td>Falta notarizar o grapar; <code>spctl -a -vv -t install Bote.pkg</code> tiene que decir <code>accepted</code></td><td><span class="ref">../apps-nativas/sellar.sh:42</span></td></tr>
+      <tr><td>Las capturas no entran</td><td>Tamaño exacto 1206 × 2622 para el hueco «iPhone con Dynamic Island»; se generan con <code>-demo</code> y se redimensionan con <code>sips</code></td><td><span class="ref">apple/Bote/Demo.swift:5</span></td></tr>
+    </tbody></table>
+    <p class="dato"><b>Dato real:</b> la única regla que no se ve en el código: si una app cambia de firma, macOS deja los permisos (TCC) apuntando a la firma vieja. Bote no pide ningún permiso, así que ese cajón aquí está vacío.</p></div>
+  </div>
+</section>
+
+<p class="cierre">La web no se reescribió: se metió en una maleta y se le selló el pasaporte.</p>
+
+</div>
+</body>
+</html>
