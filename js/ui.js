@@ -52,6 +52,38 @@ function cerrarPanel() {
 addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !panel.hidden) cerrarPanel(); });
 panel.addEventListener('click', (ev) => { if (ev.target.dataset.cerrarPanel !== undefined) cerrarPanel(); });
 
+/* Arrastrar el panel hacia abajo lo cierra, como las hojas de iOS. Se agarra
+ * por el asa o el título, para no pelearse con el scroll de dentro. */
+{
+  const caja = $('.panel__caja');
+  let y0 = null, t0 = 0, dy = 0;
+  caja.addEventListener('pointerdown', (ev) => {
+    if (!ev.target.closest('.panel__asa, .panel__titulo')) return;
+    y0 = ev.clientY; t0 = ev.timeStamp; dy = 0;
+    caja.setPointerCapture(ev.pointerId);
+    caja.style.transition = 'none';
+  });
+  caja.addEventListener('pointermove', (ev) => {
+    if (y0 === null) return;
+    dy = Math.max(0, ev.clientY - y0);
+    caja.style.transform = `translateY(${dy}px)`;
+  });
+  const soltar = (ev) => {
+    if (y0 === null) return;
+    const rapido = dy / Math.max(1, ev.timeStamp - t0) > 0.6;   // px/ms: un tirón corto también cierra
+    y0 = null;
+    caja.style.transition = 'transform .22s cubic-bezier(.32, .72, 0, 1)';
+    if (dy > caja.offsetHeight * 0.3 || (rapido && dy > 30)) {
+      caja.style.transform = 'translateY(100%)';
+      setTimeout(() => { cerrarPanel(); caja.style.transform = caja.style.transition = ''; }, 200);
+    } else {
+      caja.style.transform = '';
+    }
+  };
+  caja.addEventListener('pointerup', soltar);
+  caja.addEventListener('pointercancel', soltar);
+}
+
 /** Confirmación propia: la nativa enseña el dominio y rompe la ilusión de app. */
 function confirmar(titulo, textoBoton = 'Borrar') {
   return new Promise((resolver) => {
@@ -85,15 +117,36 @@ function selectorJugadores(jugadores, etiqueta) {
 let vista = 'inicio';
 let verId = null;          // partida que se está mirando (activa o del histórico)
 
-const ATRAS = { ajustes: 'inicio', partida: 'inicio', contar: 'partida', reparto: 'contar' };
+/* Cada pantalla va al historial del navegador: así «Atrás», el gesto de
+ * deslizar desde el borde (en la app) y el botón atrás de Safari hacen lo
+ * mismo. history.state = { vista, verId, prof, de }: prof es cuántas pantallas
+ * hay por encima del inicio y de, la pantalla de la que se vino (pone el
+ * texto del botón Atrás, como en iOS). */
+const CORTO = { inicio: 'Bote', ajustes: 'Fichas', partida: 'Partida', contar: 'Contar', reparto: 'Reparto' };
 
-function ir(destino, id = verId) {
+function mostrar(destino, id) {
   vista = destino;
   verId = id;
   cerrarPanel();
   pintar();
   $('#principal').scrollTop = 0;
 }
+
+function ir(destino, id = verId) {
+  const prof = history.state?.prof || 0;
+  if (destino === 'inicio') {
+    if (prof > 0) history.go(-prof);       // popstate pinta el inicio
+    else mostrar('inicio', null);
+    return;
+  }
+  history.pushState({ vista: destino, verId: id, prof: prof + 1, de: vista }, '');
+  mostrar(destino, id);
+}
+
+addEventListener('popstate', (ev) => {
+  const st = ev.state || { vista: 'inicio', verId: null };
+  mostrar(st.vista, st.verId);
+});
 
 const partidaVista = () => (verId ? E.partidaPorId(verId) : null);
 
@@ -115,11 +168,10 @@ function pintar() {
   $('#titulo').textContent = titulos[vista];
 
   const atras = $('#atras');
-  atras.hidden = !ATRAS[vista];
-  if (ATRAS[vista]) {
-    $('#atras-texto').textContent = { ajustes: 'Bote', partida: 'Bote', contar: 'Partida', reparto: 'Contar' }[vista];
-    atras.onclick = () => ir(ATRAS[vista]);
-  }
+  atras.hidden = vista === 'inicio';
+  nativo('atras', { puede: (history.state?.prof || 0) > 0 });
+  $('#atras-texto').textContent = CORTO[history.state?.de] || 'Bote';
+  atras.onclick = () => ((history.state?.prof || 0) > 0 ? history.back() : mostrar('inicio', null));
 
   const accion = $('#accion-barra');
   accion.hidden = true;
@@ -145,7 +197,7 @@ function pintarInicio() {
           h('div', { class: 'fila__nombre' }, '¿Cuántas fichas doy a cada uno?'),
           h('div', { class: 'fila__sub' },
             `${euros(estado.ajustes.buyIn)} · ${estado.ajustes.fichas.map((f) => f.nombre.toLowerCase()).join(', ')}`)),
-        h('span', { class: 'fila__chevron' }, '›'))));
+        h('span', { class: 'fila__chevron', 'aria-hidden': 'true' }, '›'))));
 
   if (activa) {
     const r = calcular(activa);
@@ -160,7 +212,7 @@ function pintarInicio() {
             h('div', { class: 'fila__nombre' }, activa.nombre || `Partida del ${fecha(activa.fecha)}`),
             h('div', { class: 'fila__sub' },
               `${r.numJugadores} jugadores · bote ${euros(r.boteTotal)}${r.recompras ? ` · ${r.recompras} ${r.recompras === 1 ? 'recompra' : 'recompras'}` : ''}`)),
-          h('span', { class: 'fila__chevron' }, '›'))));
+          h('span', { class: 'fila__chevron', 'aria-hidden': 'true' }, '›'))));
   }
 
   const historico = estado.partidas.filter((p) => p.id !== estado.activaId);
@@ -175,7 +227,7 @@ function pintarInicio() {
             h('div', { class: 'fila__sub' },
               `${p.jugadores.map((j) => j.nombre).join(', ') || 'sin jugadores'}${p.cerrada ? '' : ' · sin cerrar'}`)),
           h('div', { class: 'fila__cifra' }, euros(r.boteTotal)),
-          h('span', { class: 'fila__chevron' }, '›'));
+          h('span', { class: 'fila__chevron', 'aria-hidden': 'true' }, '›'));
       }))
       : h('div', { class: 'tarjeta' }, h('p', { class: 'vacio' }, 'Aquí quedarán guardadas las partidas.')));
 
@@ -275,7 +327,9 @@ function pintarAjustes() {
             h('input', {
               type: 'text', inputmode: 'numeric', value: f.unidades || 0,
               oninput: (ev) => { f.unidades = parseInt(ev.target.value, 10) || 0; repintarReparto(); },
-            })))));
+            }))),
+        segmento(`Cuántas ${f.nombre.toLowerCase()} dar`, [[-1, 'Menos'], [0, 'Normal'], [1, 'Más']],
+          f.preferencia || 0, (v) => { f.preferencia = v; repintarReparto(); })));
     });
   }
 
@@ -302,7 +356,9 @@ function pintarAjustes() {
         h('span', { class: 'punto', style: `background:${f.color}` }),
         h('div', { class: 'fila__princ' },
           h('div', { class: 'fila__nombre' }, f.nombre),
-          h('div', { class: 'fila__sub' }, `${euros(f.valor)} cada una`)),
+          h('div', { class: 'fila__sub' }, `${euros(f.valor)} cada una${
+            f.preferencia === 1 && f.unidades > 0 && reparto[f.id] >= Math.floor(f.unidades / numJugadores)
+              ? ' · no caben más en la caja' : ''}`)),
         h('div', { class: 'fila__cifra' }, `× ${reparto[f.id] || 0}`)));
     }
     cajaReparto.append(h('div', { class: 'fila' },
@@ -334,6 +390,10 @@ function pintarAjustes() {
         h('span', { class: 'campo__etiqueta' }, 'Cuántos jugáis'), selJugadores)),
     h('div', { class: 'bloque' },
       h('p', { class: 'rotulo' }, 'Fichas: color, valor y cuántas hay'),
+      botonFoto('Contar la caja con una foto', fichas, (cuentas) => {
+        for (const f of fichas) if (cuentas[f.id] !== undefined) f.unidades = cuentas[f.id];
+        repintarFichas(); repintarReparto();
+      }),
       listaFichas,
       h('button', {
         class: 'btn btn--fantasma', style: 'margin-top:8px',
@@ -368,7 +428,7 @@ function pintarPartida() {
 
   const accion = $('#accion-barra');
   accion.hidden = false;
-  accion.textContent = 'Renombrar';
+  accion.textContent = 'Editar';
   accion.onclick = () => panelRenombrarPartida(p);
 
   cont.append(h('div', { class: 'marcador' },
@@ -386,7 +446,7 @@ function pintarPartida() {
           h('div', { class: 'fila__nombre' }, j.nombre),
           h('div', { class: 'fila__sub' }, resumenJugador(j))),
         h('div', { class: 'fila__cifra' }, euros(j.base)),
-        h('span', { class: 'fila__chevron' }, '›'))),
+        h('span', { class: 'fila__chevron', 'aria-hidden': 'true' }, '›'))),
     r.jugadores.length ? null : h('p', { class: 'vacio' }, 'Aún no hay nadie en la mesa.')));
 
   const movs = [...p.movimientos].reverse();
@@ -549,7 +609,7 @@ function pintarContar() {
         h('div', { class: 'fila__sub' }, j.contado ? `puso ${euros(j.base)}` : 'sin contar')),
       h('div', { class: `fila__cifra ${j.contado ? signoClase(j.resultado) : ''}` },
         j.contado ? euros(j.final) : '—'),
-      h('span', { class: 'fila__chevron' }, '›')))));
+      h('span', { class: 'fila__chevron', 'aria-hidden': 'true' }, '›')))));
 
   $('#pie').hidden = false;
   vaciar($('#pie')).append(h('button', {
@@ -583,7 +643,7 @@ function textoCuadre(p, r) {
 function panelContar(p, jugadorId) {
   const fichas = [...p.ajustes.fichas].sort((a, b) => b.valor - a.valor);
   const actual = { ...(p.conteo[jugadorId] || {}) };
-  const total = h('div', { class: 'fila__cifra', style: 'font-size:22px' });
+  const total = h('div', { class: 'fila__cifra', style: 'font-size:1.294rem' });
   const base = calcular(p).jugadores.find((j) => j.id === jugadorId)?.base || 0;
   const diferencia = h('div', { class: 'fila__sub' });
 
@@ -602,6 +662,7 @@ function panelContar(p, jugadorId) {
       oninput: (ev) => { actual[f.id] = Math.max(0, parseInt(ev.target.value, 10) || 0); refrescarTotal(); },
     });
     const mover = (n) => {
+      if ((actual[f.id] || 0) + n >= 0) nativo('toque');
       actual[f.id] = Math.max(0, (actual[f.id] || 0) + n);
       input.value = actual[f.id];
       refrescarTotal();
@@ -621,6 +682,11 @@ function panelContar(p, jugadorId) {
   const nombre = nombreDe(p, jugadorId);
 
   abrirPanel(`Fichas de ${nombre}`,
+    botonFoto(`Contar las de ${nombre} con una foto`, fichas, (cuentas) => {
+      for (const f of fichas) if (cuentas[f.id] !== undefined) actual[f.id] = cuentas[f.id];
+      filas.forEach((fila, i) => { fila.querySelector('input').value = actual[fichas[i].id] || 0; });
+      refrescarTotal();
+    }),
     h('div', { class: 'tarjeta' }, ...filas,
       h('div', { class: 'fila' },
         h('div', { class: 'fila__princ' }, h('div', { class: 'fila__nombre' }, 'Total'), diferencia),
@@ -648,26 +714,27 @@ function pintarReparto() {
     return;
   }
 
+  // Lo primero, la respuesta: quién le paga a quién. El detalle, debajo.
   const orden = [...r.jugadores].sort((a, b) => b.resultado - a.resultado);
   cont.append(
-    h('p', { class: 'rotulo' }, 'Cómo ha ido la noche'),
-    h('div', { class: 'tarjeta' }, ...orden.map((j) =>
-      h('div', { class: 'fila' },
-        h('div', { class: 'fila__princ' },
-          h('div', { class: 'fila__nombre' }, j.nombre),
-          h('div', { class: 'fila__sub' }, `puso ${euros(j.base)} · acabó con ${euros(j.final)}`)),
-        h('div', { class: `fila__cifra ${signoClase(j.resultado)}` }, euros(j.resultado, { signo: true }))))),
-
-    h('p', { class: 'rotulo', style: 'margin-top:20px' }, 'Quién paga a quién'),
+    h('p', { class: 'rotulo' }, 'Quién paga a quién'),
     h('div', { class: 'tarjeta' },
       r.pagos.length
         ? r.pagos.map((pg) => h('div', { class: 'fila' },
           h('div', { class: 'fila__princ pago' },
             h('span', { class: 'fila__nombre' }, pg.deNombre),
-            h('span', { class: 'pago__flecha' }, '→'),
+            h('span', { class: 'pago__flecha', role: 'img', 'aria-label': 'le paga a' }, '→'),
             h('span', { class: 'fila__nombre' }, pg.aNombre)),
           h('div', { class: 'fila__cifra' }, euros(pg.importe))))
-        : h('p', { class: 'vacio' }, 'Nadie debe nada: la noche ya está saldada.')));
+        : h('p', { class: 'vacio' }, 'Nadie debe nada: la noche ya está saldada.')),
+
+    h('p', { class: 'rotulo', style: 'margin-top:20px' }, 'Cómo ha ido la noche'),
+    h('div', { class: 'tarjeta' }, ...orden.map((j) =>
+      h('div', { class: 'fila' },
+        h('div', { class: 'fila__princ' },
+          h('div', { class: 'fila__nombre' }, j.nombre),
+          h('div', { class: 'fila__sub' }, `puso ${euros(j.base)} · acabó con ${euros(j.final)}`)),
+        h('div', { class: `fila__cifra ${signoClase(j.resultado)}` }, euros(j.resultado, { signo: true }))))));
 
   const yaMovido = r.jugadores.some((j) => j.pagado || j.cobrado);
   if (yaMovido) {
@@ -683,7 +750,61 @@ function pintarReparto() {
       : h('button', { class: 'btn btn--fantasma', onclick: () => { E.cerrarPartida(p.id); ir('inicio', null); } }, 'Cerrar partida'));
 }
 
+/** Control segmentado de iOS: una opción marcada de varias. */
+function segmento(etiqueta, opciones, actual, alCambiar) {
+  const caja = h('div', { class: 'segmento', role: 'group', 'aria-label': etiqueta });
+  const pintarOpciones = (v) => vaciar(caja).append(...opciones.map(([valor, texto]) =>
+    h('button', {
+      class: 'segmento__opcion', 'aria-pressed': String(valor === v),
+      onclick: () => { nativo('toque'); pintarOpciones(valor); alCambiar(valor); },
+    }, texto)));
+  pintarOpciones(actual);
+  return h('div', { class: 'campo segmento__campo' }, h('span', { class: 'campo__etiqueta' }, etiqueta), caja);
+}
+
 /* ── puente con la app nativa (iPhone/Mac) ───────────────────────────────── */
+
+/**
+ * Botón «contar con una foto». Solo aparece en un iPhone que lo sepa hacer
+ * (iOS 27 con Apple Intelligence: el modelo corre en el teléfono y la foto no
+ * sale de él). Los números que vuelven se pueden corregir a mano.
+ * alContar recibe { idDeColor: unidades } solo con los colores reconocidos.
+ */
+function botonFoto(texto, fichas, alContar) {
+  if (window.boteFotoDisponible !== true) return null;
+  const nota = h('p', { class: 'fila__sub foto__nota', 'aria-live': 'polite' });
+  const boton = h('button', {
+    class: 'btn btn--fantasma foto',
+    onclick: () => {
+      window.boteFoto = (r) => {
+        if (r.contando) { boton.disabled = true; nota.textContent = 'Contando las fichas de la foto…'; return; }
+        window.boteFoto = null;
+        boton.disabled = false;
+        if (r.error) { nota.textContent = r.error; return; }
+        const cuentas = {};
+        const norm = (t) => t.trim().toLowerCase();
+        for (const [nombre, n] of Object.entries(r.cuentas || {})) {
+          const f = fichas.find((x) => norm(x.nombre) === norm(nombre))
+            || fichas.find((x) => norm(nombre).includes(norm(x.nombre)) || norm(x.nombre).includes(norm(nombre)));
+          if (f) cuentas[f.id] = n;
+        }
+        alContar(cuentas);
+        nativo('vibrar');
+        nota.textContent = 'Contadas con la foto. Revisa los números por si se ha colado algún error.';
+      };
+      nativo('contarFoto', { colores: fichas.map((f) => f.nombre) });
+    },
+  }, iconoCamara(), texto);
+  return h('div', { class: 'foto__caja' }, boton, nota);
+}
+
+const iconoCamara = () => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
+  return svg;
+};
 
 /** Solo existe dentro de la app de verdad (WKWebView). En la web devuelve false. */
 function nativo(tipo, datos = {}) {
@@ -737,9 +858,10 @@ function avisoInstalar() {
 
 E.suscribir(() => pintar());
 // Al abrir, se retoma la partida en marcha: es lo que uno quiere a media noche.
+history.replaceState({ vista: 'inicio', verId: null, prof: 0 }, '');
 const activa = E.partidaActiva();
-if (activa) { verId = activa.id; vista = activa.cerrada ? 'reparto' : 'partida'; }
-pintar();
+if (activa) ir(activa.cerrada ? 'reparto' : 'partida', activa.id);
+else pintar();
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

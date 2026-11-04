@@ -127,3 +127,18 @@ test('buyInSugerido no tira un cuarto de la caja por redondear a 5 €', () => {
   // 8 jugadores: la caja da 19,80 € por cabeza. 15 € dejaría fichas de sobra.
   assert.equal(buyInSugerido(FICHAS_POR_DEFECTO, 8), 1900);
 });
+
+test('pedir más o menos fichas de un color mueve el reparto y sigue cuadrando', () => {
+  const base = sugerirReparto(2000, FICHAS_POR_DEFECTO, 4).reparto;
+  const masBlancas = FICHAS_POR_DEFECTO.map((f) => (f.id === 'blanca' ? { ...f, preferencia: 1 } : f));
+  const menosNegras = FICHAS_POR_DEFECTO.map((f) => (f.id === 'negra' ? { ...f, preferencia: -1 } : f));
+  const a = sugerirReparto(2000, masBlancas, 4);
+  const b = sugerirReparto(2000, menosNegras, 4);
+  assert.ok(a.ok && b.ok);
+  assert.equal(valor(a.reparto, masBlancas), 2000);
+  assert.equal(valor(b.reparto, menosNegras), 2000);
+  assert.ok(a.reparto.blanca > base.blanca, `${JSON.stringify(base)} → ${JSON.stringify(a.reparto)}`);
+  assert.ok(b.reparto.negra < base.negra, `${JSON.stringify(base)} → ${JSON.stringify(b.reparto)}`);
+  // Sin pasarse de la caja: 150 blancas entre 4 son 37 como mucho.
+  assert.ok(a.reparto.blanca <= 37);
+});

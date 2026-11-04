@@ -11,7 +11,7 @@ settings:
     DEVELOPMENT_TEAM: 4HBV76K3X6
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "5.9"
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     GENERATE_INFOPLIST_FILE: NO
@@ -35,6 +35,9 @@ targets:
         PRODUCT_NAME: Bote
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # El modelo de Apple (contar con una foto) solo existe desde iOS 26: enlace
+        # débil para que la app siga abriendo en iOS 17.
+        OTHER_LDFLAGS: [-weak_framework, FoundationModels]
     info:
       path: Info-iOS.plist
       properties:
@@ -48,6 +51,7 @@ targets:
         UIStatusBarStyle: UIStatusBarStyleLightContent
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.utilities
+        NSCameraUsageDescription: "Para contar tus fichas con una foto. La foto se analiza en el iPhone y no se guarda ni se envía."
   Bote-macOS:
     templates: [Bote]
     platform: macOS

@@ -24,12 +24,21 @@
 
 * { box-sizing: border-box; }
 
+/* El tamaño de letra lo pone el iPhone (Ajustes → Pantalla → Tamaño del texto):
+ * -apple-system-body vale 17px por defecto y crece con la letra grande. Todo lo
+ * demás va en rem, así que escala con él. Fuera de Apple se queda en 17px. */
+html { font-size: 17px; }
+@supports (font: -apple-system-body) { html { font: -apple-system-body; } }
+
 html, body {
   margin: 0;
   height: 100%;
   background: var(--fondo);
   color: var(--texto);
-  font: 17px/1.45 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.45;
+  /* Sin doble toque para ampliar: al contar fichas a toques se comía pulsaciones. */
+  touch-action: manipulation;
   /* Detalles que separan una app de una web: sin flash azul al tocar, sin
      rebote de scroll y sin seleccionar texto sin querer. */
   -webkit-tap-highlight-color: transparent;
@@ -39,9 +48,10 @@ html, body {
   -webkit-user-select: none;
 }
 
-body { overflow: hidden; }
+body { overflow: hidden; font-size: 1rem; }
 
 input, textarea { user-select: text; -webkit-user-select: text; }
+button { -webkit-touch-callout: none; }
 
 h1, h2, h3, p, ul, ol { margin: 0; }
 ul { list-style: none; padding: 0; }
@@ -68,10 +78,13 @@ ul { list-style: none; padding: 0; }
 
 .barra__titulo {
   grid-column: 2;
-  font-size: 17px;
+  font-size: 1rem;
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 52vw;
 }
 
 .barra__atras, .barra__accion {
@@ -80,7 +93,7 @@ ul { list-style: none; padding: 0; }
   background: none;
   color: var(--verde);
   font: inherit;
-  font-size: 16px;
+  font-size: 0.941rem;
   padding: 6px 2px;
   min-height: 36px;
   cursor: pointer;
@@ -128,7 +141,7 @@ body[data-vista='reparto'] .vista[data-para='reparto'] {
 .tarjeta + .tarjeta, .bloque + .bloque { margin-top: 16px; }
 
 .rotulo {
-  font-size: 13px;
+  font-size: 0.765rem;
   font-weight: 600;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -153,19 +166,22 @@ body[data-vista='reparto'] .vista[data-para='reparto'] {
 .fila:last-child { border-bottom: 0; }
 button.fila { cursor: pointer; }
 button.fila:active { background: var(--superficie-2); }
-.fila__princ { flex: 1; min-width: 0; }
+/* Con letra grande no cabe todo en una línea: si el texto se queda con menos
+ * de 9em, la cifra baja a la línea de abajo (y el contador también). */
+.fila { flex-wrap: wrap; }
+.fila__princ { flex: 1 1 9em; min-width: 0; }
 .fila__nombre { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fila__sub { font-size: 13px; color: var(--apagado); }
+.fila__sub { font-size: 0.765rem; color: var(--apagado); }
 /* Los movimientos son frases enteras: mejor que doblen a que se corten. */
 .fila__nombre--largo { white-space: normal; overflow: visible; }
-.fila__cifra { font-variant-numeric: tabular-nums; font-weight: 600; }
-.fila__chevron { color: var(--apagado); font-size: 20px; line-height: 1; }
+.fila__cifra { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.fila__chevron { color: var(--apagado); font-size: 1.176rem; line-height: 1; }
 
 .vacio {
   text-align: center;
   color: var(--apagado);
   padding: 32px 16px;
-  font-size: 15px;
+  font-size: 0.882rem;
 }
 
 /* ── botones ─────────────────────────────────────────────────────────────── */
@@ -193,15 +209,15 @@ button.fila:active { background: var(--superficie-2); }
 .btn--principal { background: var(--verde); color: #04210f; }
 .btn--fantasma { background: none; border-color: var(--borde); }
 .btn--peligro { background: none; border-color: var(--borde); color: var(--rojo); }
-.btn--pequeño { width: auto; min-height: 38px; padding: 8px 14px; font-size: 15px; border-radius: 10px; }
-.botonera { display: flex; gap: 8px; }
-.botonera .btn { flex: 1; }
+.btn--pequeño { width: auto; min-height: 38px; padding: 8px 14px; font-size: 0.882rem; border-radius: 10px; }
+.botonera { display: flex; flex-wrap: wrap; gap: 8px; }
+.botonera .btn { flex: 1 1 8em; }
 
 /* ── resumen de cabecera ─────────────────────────────────────────────────── */
 
 .marcador {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(5.5em, 1fr));
   gap: 1px;
   background: var(--borde);
   border: 1px solid var(--borde);
@@ -210,13 +226,13 @@ button.fila:active { background: var(--superficie-2); }
   margin-bottom: 16px;
 }
 .marcador__dato { background: var(--superficie); padding: 14px 8px; text-align: center; }
-.marcador__cifra { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.marcador__pie { font-size: 12px; color: var(--apagado); text-transform: uppercase; letter-spacing: .04em; }
+.marcador__cifra { white-space: nowrap; font-size: 1.294rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.marcador__pie { font-size: 0.706rem; color: var(--apagado); text-transform: uppercase; letter-spacing: .04em; }
 
 /* ── formularios ─────────────────────────────────────────────────────────── */
 
 .campo { display: grid; gap: 6px; }
-.campo__etiqueta { font-size: 13px; color: var(--apagado); }
+.campo__etiqueta { font-size: 0.765rem; color: var(--apagado); }
 input[type='text'], input[type='number'], select {
   appearance: none;
   width: 100%;
@@ -227,7 +243,7 @@ input[type='text'], input[type='number'], select {
   border-radius: 12px;
   color: var(--texto);
   font: inherit;
-  font-size: 17px;             /* menos de 16px hace que iOS haga zoom al enfocar */
+  font-size: max(16px, 1rem);  /* menos de 16px hace que iOS haga zoom al enfocar */
 }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
 .panel__caja:focus { outline: none; }
@@ -268,21 +284,21 @@ select {
 .contador { display: flex; align-items: center; gap: 6px; }
 .contador__btn {
   appearance: none;
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   flex: none;
   border-radius: 50%;
   border: 1px solid var(--borde);
   background: var(--superficie-2);
   color: var(--texto);
-  font-size: 22px;
+  font-size: 1.294rem;
   line-height: 1;
   cursor: pointer;
 }
 .contador__btn:active { background: var(--verde); color: #04210f; }
 .contador__btn:disabled { opacity: .35; }
 .contador input {
-  width: 68px;
-  min-height: 40px;
+  width: 3.6em;
+  min-height: 44px;
   text-align: center;
   padding: 6px;
   font-weight: 700;
@@ -300,7 +316,7 @@ select {
 .cuadre--ok { border-color: var(--verde); background: color-mix(in srgb, var(--verde) 14%, var(--superficie)); }
 .cuadre--mal { border-color: var(--ambar); background: color-mix(in srgb, var(--ambar) 14%, var(--superficie)); }
 .cuadre__titulo { font-weight: 700; }
-.cuadre__detalle { font-size: 14px; color: var(--apagado); margin-top: 2px; }
+.cuadre__detalle { font-size: 0.824rem; color: var(--apagado); margin-top: 2px; }
 .cuadre--ok .cuadre__detalle, .cuadre--mal .cuadre__detalle { color: color-mix(in srgb, var(--texto) 78%, transparent); }
 
 .aviso {
@@ -308,7 +324,7 @@ select {
   background: color-mix(in srgb, var(--ambar) 12%, var(--superficie));
   border-radius: var(--radio);
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: 0.824rem;
   margin-bottom: 12px;
 }
 
@@ -317,7 +333,8 @@ select {
 .gana { color: var(--verde); }
 .pierde { color: var(--rojo); }
 
-.pago { display: flex; align-items: center; gap: 10px; }
+.pago { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; }
+.pago .fila__nombre { white-space: normal; }
 .pago__flecha { color: var(--apagado); flex: none; }
 
 /* ── panel inferior ──────────────────────────────────────────────────────── */
@@ -341,7 +358,7 @@ select {
 @keyframes subir { from { transform: translateY(100%); } }
 
 .panel__asa { width: 38px; height: 5px; border-radius: 3px; background: var(--borde); margin: 6px auto 10px; }
-.panel__titulo { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 14px; }
+.panel__titulo { font-size: 1.059rem; font-weight: 700; text-align: center; margin-bottom: 14px; }
 .panel__cuerpo { display: grid; gap: 12px; }
 
 /* ── aviso de instalación ────────────────────────────────────────────────── */
@@ -354,7 +371,7 @@ select {
   border: 1px solid var(--borde);
   border-radius: var(--radio);
   padding: 14px 40px 14px 16px;
-  font-size: 14px;
+  font-size: 0.824rem;
 }
 .instalar[hidden] { display: none; }
 .instalar__gesto { color: var(--apagado); margin-top: 4px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
@@ -363,7 +380,7 @@ select {
   width: 32px; height: 32px;
   border: 0; border-radius: 50%;
   background: none; color: var(--apagado);
-  font-size: 15px; cursor: pointer;
+  font-size: 0.882rem; cursor: pointer;
 }
 
 /* Ya instalada en la pantalla de inicio: el aviso no tiene nada que decir. */
@@ -374,3 +391,42 @@ select {
   .app { max-width: 560px; margin: 0 auto; border-inline: 1px solid var(--borde); }
   .panel__caja { max-width: 560px; margin: 0 auto; border-radius: 20px 20px 0 0; }
 }
+
+/* ── control segmentado (menos / normal / más) ───────────────────────────── */
+
+.segmento__campo { grid-column: 1 / -1; }
+.segmento {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+.segmento__opcion {
+  appearance: none;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--apagado);
+  font: inherit;
+  font-size: 0.882rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.segmento__opcion[aria-pressed='true'] { background: var(--borde); color: var(--texto); }
+
+/* ── contar con una foto ─────────────────────────────────────────────────── */
+
+.foto__caja { margin-bottom: 10px; }
+.foto svg { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.foto__nota:empty { display: none; }
+.foto__nota { margin: 6px 4px 0; }
+
+/* El panel se agarra por el asa y el título para bajarlo. */
+.panel__asa, .panel__titulo { touch-action: none; cursor: grab; }
+.panel__asa { padding: 8px 0; background-clip: content-box; height: 21px; }

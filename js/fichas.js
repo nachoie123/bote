@@ -8,6 +8,9 @@ export const FICHAS_POR_DEFECTO = [
   { id: 'negra', nombre: 'Negras', color: '#27272a', valor: 100, unidades: 100 },
 ];
 
+/** Cuánto pesa cada color en el reparto según se quieran menos (-1) o más (1) fichas de él. */
+export const PREFERENCIA = { '-1': 0.4, 0: 1, 1: 2.5 };
+
 const mcd = (a, b) => (b === 0 ? a : mcd(b, a % b));
 
 /** Comprueba que el set es usable antes de dejar empezar una partida. */
@@ -56,8 +59,9 @@ export function sugerirReparto(buyIn, fichas, numJugadores = 1) {
     };
   }
 
-  // 1. Ideal en decimales.
-  const pesos = orden.map((f) => Math.sqrt(f.valor));
+  // 1. Ideal en decimales. «Más» o «menos» de un color (f.preferencia 1 / -1)
+  // multiplica o divide su parte del valor; la mochila de abajo sigue cuadrando exacto.
+  const pesos = orden.map((f) => Math.sqrt(f.valor) * (PREFERENCIA[f.preferencia] ?? 1));
   const sumaPesos = pesos.reduce((a, b) => a + b, 0);
   const ideal = orden.map((f, i) => Math.min(tope(f, numJugadores), (buyIn * pesos[i]) / sumaPesos / f.valor));
 
