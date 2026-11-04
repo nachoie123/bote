@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { sugerirReparto, buyInSugerido, jugadoresQueCaben, validarFichas, FICHAS_POR_DEFECTO } from '../js/fichas.js';
+import { sugerirReparto, buyInSugerido, jugadoresQueCaben, validarFichas, FICHAS_POR_DEFECTO as CINCO } from '../js/fichas.js';
+
+// Los casos de abajo se escribieron con el set de 3 colores; se quedan con él.
+const FICHAS_POR_DEFECTO = [
+  { id: 'blanca', nombre: 'Blancas', color: '#e8e8ea', valor: 10, unidades: 150 },
+  { id: 'roja', nombre: 'Rojas', color: '#dc2626', valor: 50, unidades: 100 },
+  { id: 'negra', nombre: 'Negras', color: '#27272a', valor: 100, unidades: 100 },
+];
 import { valorConteo } from '../js/motor.js';
 
 const valor = (reparto, fichas) => valorConteo(reparto, fichas);
@@ -141,4 +148,13 @@ test('pedir más o menos fichas de un color mueve el reparto y sigue cuadrando',
   assert.ok(b.reparto.negra < base.negra, `${JSON.stringify(base)} → ${JSON.stringify(b.reparto)}`);
   // Sin pasarse de la caja: 150 blancas entre 4 son 37 como mucho.
   assert.ok(a.reparto.blanca <= 37);
+});
+
+test('el maletín de 300 (5 colores) reparte 20 € exactos a 6 jugadores', () => {
+  assert.deepEqual(validarFichas(CINCO), []);
+  assert.equal(CINCO.reduce((n, f) => n + f.unidades, 0), 300);
+  const { reparto, ok } = sugerirReparto(2000, CINCO, 6);
+  assert.ok(ok);
+  assert.equal(valor(reparto, CINCO), 2000);
+  for (const f of CINCO) assert.ok(reparto[f.id] * 6 <= f.unidades, JSON.stringify(reparto));
 });

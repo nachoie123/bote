@@ -24,7 +24,7 @@ test('arranca vacío y con el set de fichas por defecto', async () => {
   const E = await cargarModulo();
   const e = E.get();
   assert.equal(e.ajustes.buyIn, 2000);
-  assert.equal(e.ajustes.fichas.length, 3);
+  assert.equal(e.ajustes.fichas.length, 5);
   assert.deepEqual(e.partidas, []);
   assert.equal(E.partidaActiva(), null);
 });
@@ -128,7 +128,7 @@ test('la partida congela sus ajustes: cambiar las fichas no reescribe el pasado'
   E.guardarAjustes({ buyIn: 5000, fichas: [{ id: 'x', nombre: 'Verdes', color: '#0f0', valor: 500, unidades: 50 }] });
   const p = E.partidaPorId(id);
   assert.equal(p.ajustes.buyIn, 2000, 'la partida en marcha mantiene su buy-in');
-  assert.equal(p.ajustes.fichas.length, 3, 'y su set de fichas');
+  assert.equal(p.ajustes.fichas.length, 5, 'y su set de fichas');
   assert.equal(E.get().ajustes.buyIn, 5000, 'pero los ajustes nuevos quedan para la siguiente');
 
   // La siguiente partida sí nace con lo nuevo.
@@ -170,4 +170,16 @@ test('suscribir avisa de cada cambio', async () => {
   const antes = avisos;
   E.crearPartida(['Pablo']);
   assert.equal(avisos, antes, 'tras darse de baja ya no recibe avisos');
+});
+
+test('quien seguía con el set de fábrica de 3 colores pasa al maletín de 5; uno tocado se respeta', async () => {
+  const viejo = [
+    { id: 'blanca', nombre: 'Blancas', color: '#e8e8ea', valor: 10, unidades: 150 },
+    { id: 'roja', nombre: 'Rojas', color: '#dc2626', valor: 50, unidades: 100 },
+    { id: 'negra', nombre: 'Negras', color: '#27272a', valor: 100, unidades: 100 },
+  ];
+  const guardado = (fichas) => ({ 'bote.v1': JSON.stringify({ v: 1, ajustes: { buyIn: 2000, fichas }, partidas: [], activaId: null }) });
+  assert.equal((await cargarModulo(guardado(viejo))).get().ajustes.fichas.length, 5);
+  const tocado = [{ ...viejo[0], unidades: 140 }, viejo[1], viejo[2]];
+  assert.equal((await cargarModulo(guardado(tocado))).get().ajustes.fichas[0].unidades, 140);
 });

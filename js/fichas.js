@@ -1,11 +1,14 @@
 /* Set de fichas: validación y reparto inicial sugerido.
  * Como motor.js, aritmética pura en céntimos y sin tocar el DOM. */
 
-/** Set por defecto: 20 € de buy-in con blancas de 0,10, rojas de 0,50 y negras de 1 €. */
+/** Set por defecto: el maletín de 300 de Nacho (6 tubos de 50, dos de ellos
+ * blancas), con la escalera de casa 0,10 · 0,20 · 0,50 · 1 · 2 €. */
 export const FICHAS_POR_DEFECTO = [
-  { id: 'blanca', nombre: 'Blancas', color: '#e8e8ea', valor: 10, unidades: 150 },
-  { id: 'roja', nombre: 'Rojas', color: '#dc2626', valor: 50, unidades: 100 },
-  { id: 'negra', nombre: 'Negras', color: '#27272a', valor: 100, unidades: 100 },
+  { id: 'blanca', nombre: 'Blancas', color: '#e8e8ea', valor: 10, unidades: 100 },
+  { id: 'roja', nombre: 'Rojas', color: '#dc2626', valor: 20, unidades: 50 },
+  { id: 'azul', nombre: 'Azules', color: '#2563eb', valor: 50, unidades: 50 },
+  { id: 'verde', nombre: 'Verdes', color: '#16a34a', valor: 100, unidades: 50 },
+  { id: 'negra', nombre: 'Negras', color: '#27272a', valor: 200, unidades: 50 },
 ];
 
 /** Cuánto pesa cada color en el reparto según se quieran menos (-1) o más (1) fichas de él. */

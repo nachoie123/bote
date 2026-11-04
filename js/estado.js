@@ -17,6 +17,12 @@ export function nuevoId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+const SET_VIEJO = JSON.stringify([
+  { id: 'blanca', nombre: 'Blancas', color: '#e8e8ea', valor: 10, unidades: 150 },
+  { id: 'roja', nombre: 'Rojas', color: '#dc2626', valor: 50, unidades: 100 },
+  { id: 'negra', nombre: 'Negras', color: '#27272a', valor: 100, unidades: 100 },
+]);
+
 function estadoInicial() {
   return {
     v: VERSION,
@@ -32,6 +38,9 @@ function leer() {
     if (!crudo) return estadoInicial();
     const datos = JSON.parse(crudo);
     if (datos?.v !== VERSION) return estadoInicial();
+    // Quien seguía con el set de fábrica de 3 colores pasa al de 5 (el maletín
+    // de 300). Si lo había tocado, se respeta.
+    if (JSON.stringify(datos.ajustes?.fichas) === SET_VIEJO) datos.ajustes.fichas = structuredClone(FICHAS_POR_DEFECTO);
     // Los defectos rellenan lo que falte: una versión vieja a la que le falte
     // un campo entra igual en vez de dejar la app en blanco.
     return { ...estadoInicial(), ...datos };
