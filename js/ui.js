@@ -639,16 +639,24 @@ function textoCuadre(p, r) {
   return partes.join(' ');
 }
 
-/** Conteo de un jugador: un contador por color y el total en vivo. */
+/**
+ * Conteo de un jugador, de dos maneras: el dinero que tiene en total (lo
+ * rápido: cada uno suma lo suyo) o ficha a ficha, un contador por color.
+ * Se recuerda la última que se usó.
+ */
 function panelContar(p, jugadorId) {
   const fichas = [...p.ajustes.fichas].sort((a, b) => b.valor - a.valor);
-  const actual = { ...(p.conteo[jugadorId] || {}) };
+  const guardado = p.conteo[jugadorId];
+  const actual = guardado && typeof guardado.dinero !== 'number' ? { ...guardado } : {};
+  let modo = guardado ? (typeof guardado.dinero === 'number' ? 'dinero' : 'fichas') : leerModo();
+  const campoDinero = campoImporte(guardado ? valorConteo(guardado, fichas) : 0, 'Dinero que tiene en fichas');
+  campoDinero.input.addEventListener('input', () => refrescarTotal());
   const total = h('div', { class: 'fila__cifra', style: 'font-size:1.294rem' });
   const base = calcular(p).jugadores.find((j) => j.id === jugadorId)?.base || 0;
   const diferencia = h('div', { class: 'fila__sub' });
 
   function refrescarTotal() {
-    const v = valorConteo(actual, fichas);
+    const v = modo === 'dinero' ? (campoDinero.leer() ?? 0) : valorConteo(actual, fichas);
     total.textContent = euros(v);
     const d = v - base;
     diferencia.textContent = d === 0 ? 'justo lo que puso' : `${euros(d, { signo: true })} sobre lo que puso`;
@@ -678,27 +686,45 @@ function panelContar(p, jugadorId) {
         h('button', { class: 'contador__btn', 'aria-label': `Una ficha ${f.nombre} más`, onclick: () => mover(1) }, '+')));
   });
 
-  refrescarTotal();
   const nombre = nombreDe(p, jugadorId);
-
-  abrirPanel(`Fichas de ${nombre}`,
+  const porFichas = h('div', { class: 'panel__cuerpo' },
     botonFoto(`Contar las de ${nombre} con una foto`, fichas, (cuentas) => {
       for (const f of fichas) if (cuentas[f.id] !== undefined) actual[f.id] = cuentas[f.id];
       filas.forEach((fila, i) => { fila.querySelector('input').value = actual[fichas[i].id] || 0; });
       refrescarTotal();
     }),
-    h('div', { class: 'tarjeta' }, ...filas,
+    h('div', { class: 'tarjeta' }, ...filas));
+  const porDinero = h('div', { class: 'panel__cuerpo' }, campoDinero);
+  const mostrarModo = () => { porFichas.hidden = modo === 'dinero'; porDinero.hidden = modo !== 'dinero'; refrescarTotal(); };
+  mostrarModo();
+
+  abrirPanel(`Cuánto tiene ${nombre}`,
+    segmento('Cómo contar', [['dinero', 'Dinero'], ['fichas', 'Fichas']], modo,
+      (m) => { modo = m; guardarModo(m); mostrarModo(); }),
+    porDinero, porFichas,
+    h('div', { class: 'tarjeta' },
       h('div', { class: 'fila' },
         h('div', { class: 'fila__princ' }, h('div', { class: 'fila__nombre' }, 'Total'), diferencia),
         total)),
     h('button', {
       class: 'btn btn--principal',
-      onclick: () => { E.fijarConteo(p.id, jugadorId, actual); cerrarPanel(); },
+      onclick: () => {
+        if (modo === 'dinero') {
+          const v = campoDinero.leer();
+          if (v === null || v === undefined || v < 0) return;
+          E.fijarConteo(p.id, jugadorId, { dinero: v });
+        } else E.fijarConteo(p.id, jugadorId, actual);
+        cerrarPanel();
+      },
     }, 'Guardar el conteo'),
     p.conteo[jugadorId]
       ? h('button', { class: 'btn btn--peligro', onclick: () => { E.fijarConteo(p.id, jugadorId, null); cerrarPanel(); } }, 'Deshacer el conteo')
       : null);
 }
+
+/* La forma de contar es una preferencia de este móvil, no de la partida. */
+function leerModo() { try { return localStorage.getItem('bote.modo-conteo') || 'dinero'; } catch { return 'dinero'; } }
+function guardarModo(m) { try { localStorage.setItem('bote.modo-conteo', m); } catch { /* sin almacenamiento: da igual */ } }
 
 /* ── vista: reparto ──────────────────────────────────────────────────────── */
 

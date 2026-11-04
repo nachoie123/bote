@@ -307,3 +307,18 @@ test('un movimiento de un jugador borrado avisa en vez de romper', () => {
   assert.equal(r.boteTotal, 2000);
   assert.match(r.avisos[0], /ya no existe/);
 });
+
+test('contar en dinero: cada uno dice lo que tiene y el reparto sale igual, mezclado con fichas', () => {
+  assert.equal(valorConteo({ dinero: 1234 }, FICHAS), 1234);
+  const p = partida({
+    jugadores: ['Nacho', 'Pablo', 'Marta'],
+    movimientos: [buyin('nacho'), buyin('pablo'), buyin('marta')],
+    conteo: { nacho: { dinero: 4000 }, pablo: stack(1500), marta: { dinero: 500 } },
+  });
+  const r = calcular(p);
+  assert.equal(r.cuadre.diferencia, 0);
+  assert.ok(r.cuadre.todosContados);
+  const total = r.pagos.reduce((t, pg) => t + pg.importe, 0);
+  assert.equal(total, 2000);   // Nacho gana 20 €: 15 se los paga Marta y 5 Pablo
+  assert.ok(r.pagos.every((pg) => pg.aNombre === 'Nacho'));
+});

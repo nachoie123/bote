@@ -44,9 +44,11 @@ export function aCentimos(texto) {
 
 /* ── cálculo ────────────────────────────────────────────────────────────── */
 
-/** Valor en céntimos de un conteo {fichaId: unidades} según el set de fichas. */
+/** Valor en céntimos de un conteo: {fichaId: unidades} según el set de fichas,
+ * o {dinero: céntimos} si el jugador dijo directamente cuánto tiene. */
 export function valorConteo(conteo, fichas) {
   if (!conteo) return 0;
+  if (typeof conteo.dinero === 'number') return conteo.dinero;
   return fichas.reduce((t, f) => t + (conteo[f.id] || 0) * f.valor, 0);
 }
 

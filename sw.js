@@ -9,7 +9,7 @@
  * tengan instalada seguirán con la vieja.
  */
 
-const VERSION = 'bote-v6';
+const VERSION = 'bote-v7';
 
 const ARCHIVOS = [
   './',

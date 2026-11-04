@@ -430,3 +430,4 @@ select {
 /* El panel se agarra por el asa y el título para bajarlo. */
 .panel__asa, .panel__titulo { touch-action: none; cursor: grab; }
 .panel__asa { padding: 8px 0; background-clip: content-box; height: 21px; }
+.panel__cuerpo[hidden] { display: none; }
