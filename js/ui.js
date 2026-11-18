@@ -262,10 +262,16 @@ function panelNuevaPartida() {
       class: 'btn btn--principal',
       onclick: () => {
         const valores = [...lista.children].map((f) => f.input.value.trim()).filter(Boolean);
-        if (!valores.length) return;
+        if (!valores.length) {            // sin nombres no pasaba nada y no decía por qué
+          const primero = lista.firstElementChild?.input || añadirCampo();
+          primero.placeholder = 'Escribe un nombre para empezar';
+          primero.focus();
+          return;
+        }
         ir('partida', E.crearPartida(valores));
       },
     }, `Empezar con ${euros(E.get().ajustes.buyIn)}`));
+  if (!nombres.length) setTimeout(() => lista.firstElementChild?.input.focus(), 350);  // primera vez: teclado listo
 }
 
 /* ── vista: ajustes (fichas y buy-in) ────────────────────────────────────── */
