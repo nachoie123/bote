@@ -2,6 +2,10 @@ import SwiftUI
 
 @main
 struct BoteApp: App {
+    #if os(macOS)
+    init() { _ = Actualizador.control }              // arranca Sparkle con la app
+    #endif
+
     var body: some Scene {
         WindowGroup {
             WebView()
@@ -10,6 +14,7 @@ struct BoteApp: App {
         }
         #if os(macOS)
         .defaultSize(width: 430, height: 860)
+        .commands { MenuActualizar() }
         #endif
     }
 }

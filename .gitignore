@@ -6,3 +6,8 @@ apple/*.xcodeproj
 apple/build/
 apple/DerivedData/
 apple/dist/
+
+# Grabaciones de pantalla para App Review: nunca al repo
+apple/capturas/*.mp4
+apple/capturas/*.zip
+.claude/

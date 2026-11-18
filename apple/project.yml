@@ -59,9 +59,16 @@ targets:
       base:
         PRODUCT_NAME: Bote
         ENABLE_HARDENED_RUNTIME: YES
+        MARKETING_VERSION: "1.0"   # versión del Mac (la sube el trabajo semanal; la del iPhone va arriba)
+    dependencies: [{ framework: ../../apps-nativas/sparkle-2.10.1/Sparkle.framework, embed: true }]   # Sparkle 2.10.1 oficial, fuera del repo
     info:
       path: Info-macOS.plist
       properties:
+        # Sparkle: mira cada día si hay versión nueva y la instala sola al cerrar la app.
+        SUFeedURL: https://nachosanbenito.com/bote-app/appcast.xml
+        SUPublicEDKey: P4duSfYCtrpopwAjL9zcxrrLn7DYaDk3ws38jqC6Ehs=
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: true
         CFBundleDisplayName: Bote
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)

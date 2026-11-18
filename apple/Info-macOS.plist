@@ -24,5 +24,13 @@
 	<string>public.app-category.utilities</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Ignacio San Benito. MIT.</string>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://nachosanbenito.com/bote-app/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>P4duSfYCtrpopwAjL9zcxrrLn7DYaDk3ws38jqC6Ehs=</string>
 </dict>
 </plist>
