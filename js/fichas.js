@@ -1,7 +1,7 @@
 /* Set de fichas: validación y reparto inicial sugerido.
  * Como motor.js, aritmética pura en céntimos y sin tocar el DOM. */
 
-/** Set por defecto: el maletín de 300 de Nacho (6 tubos de 50, dos de ellos
+/** Set por defecto: un maletín de 300 (6 tubos de 50, dos de ellos
  * blancas), con la escalera de casa 0,10 · 0,20 · 0,50 · 1 · 2 €. */
 export const FICHAS_POR_DEFECTO = [
   { id: 'blanca', nombre: 'Blancas', color: '#e8e8ea', valor: 10, unidades: 100 },
