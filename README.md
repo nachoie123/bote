@@ -8,6 +8,8 @@
 
 [**Abrir la app →**](https://bote.nachosanbenito.com)
 
+[Ver la película de 31 s →](https://nachosanbenito.com/bote-app/#film)
+
 [![Sin dependencias](https://img.shields.io/badge/dependencias-0-22c55e?style=flat-square&labelColor=0b0f0d)](package.json)
 [![39 tests](https://img.shields.io/badge/tests-39%20✓-22c55e?style=flat-square&labelColor=0b0f0d)](test)
 [![Funciona sin conexión](https://img.shields.io/badge/PWA-sin%20conexión-22c55e?style=flat-square&labelColor=0b0f0d)](sw.js)

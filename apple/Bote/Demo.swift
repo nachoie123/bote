@@ -24,13 +24,13 @@ enum Demo {
             "{\"id\":\"m\(j)\(h)\",\"ts\":\"2026-10-10T\(h):00+02:00\",\"tipo\":\"buyin\",\"jugador\":\"\(j)\",\"importe\":2000}"
         }
         let movimientos = [
-            buyin("nacho", "19:32"), buyin("marta", "19:32"), buyin("lucas", "19:33"),
+            buyin("alex", "19:32"), buyin("marta", "19:32"), buyin("lucas", "19:33"),
             buyin("sofia", "19:33"), buyin("dani", "19:41"),
             buyin("lucas", "20:58"), buyin("dani", "21:47"),
         ].joined(separator: ",")
         // Suma 140,00 €, justo lo que hay en la mesa (5 entradas + 2 recompras).
         let conteo = """
-        {"nacho":{"negra":25,"roja":25,"blanca":10},
+        {"alex":{"negra":25,"roja":25,"blanca":10},
          "marta":{"negra":40,"roja":22,"blanca":10},
          "lucas":{"negra":8,"roja":7,"blanca":8},
          "sofia":{"negra":18,"roja":16,"blanca":12},
@@ -39,7 +39,7 @@ enum Demo {
         let p1 = """
         {"id":"p1","fecha":"2026-10-10T19:30:00Z","nombre":"Sábado en casa de Marta","cerrada":\(cerrada),
          "ajustes":{"buyIn":2000,"fichas":\(fichas)},
-         "jugadores":[{"id":"nacho","nombre":"Nacho"},{"id":"marta","nombre":"Marta"},{"id":"lucas","nombre":"Lucas"},
+         "jugadores":[{"id":"alex","nombre":"Álex"},{"id":"marta","nombre":"Marta"},{"id":"lucas","nombre":"Lucas"},
                       {"id":"sofia","nombre":"Sofía"},{"id":"dani","nombre":"Dani"}],
          "movimientos":[\(movimientos)],
          "conteo":\(escenario == "partida" ? "{}" : conteo)}
@@ -51,8 +51,8 @@ enum Demo {
         }
         let partidas = [
             p1,
-            vieja("p2", "2026-10-03T20:00:00Z", "Viernes de cartas", ["Nacho", "Marta", "Lucas", "Pablo"]),
-            vieja("p3", "2026-09-26T20:00:00Z", "Cumple de Lucas", ["Nacho", "Marta", "Lucas", "Sofía", "Dani", "Pablo"]),
+            vieja("p2", "2026-10-03T20:00:00Z", "Viernes de cartas", ["Álex", "Marta", "Lucas", "Pablo"]),
+            vieja("p3", "2026-09-26T20:00:00Z", "Cumple de Lucas", ["Álex", "Marta", "Lucas", "Sofía", "Dani", "Pablo"]),
         ].joined(separator: ",")
         let estado = "{\"v\":1,\"ajustes\":{\"buyIn\":2000,\"fichas\":\(fichas)},\"partidas\":[\(partidas)],\"activaId\":\(activa)}"
         return "localStorage.setItem('bote.v1', JSON.stringify(\(estado)));"
